@@ -2,6 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { Inter, Merriweather } from 'next/font/google';
 import Link from 'next/link';
+import ThemeInit from './components/ThemeInit';
 
 // Configure fonts
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
@@ -24,6 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${merriweather.variable} scroll-smooth`}>
       <body className="font-sans min-h-screen flex flex-col">
+        <ThemeInit />
         {children}
         <footer className="bg-[#8B0000] text-white mt-auto">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
