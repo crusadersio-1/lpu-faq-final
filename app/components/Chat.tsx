@@ -16,6 +16,7 @@ interface Message {
   id?: string;
   parentId?: string;
   createdAt?: number;
+  suggestions?: string[];
 }
 
 interface FAQ {
@@ -42,35 +43,13 @@ export default function Chat() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState('');
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showOptions, setShowOptions] = useState(true);
   const [predefinedOptions, setPredefinedOptions] = useState<string[]>([]);
+  const [similarQuestions, setSimilarQuestions] = useState<string[]>([]);
   const supabase = createClientComponentClient();
 
-  // Function to convert URLs in text to clickable links
-  const renderTextWithLinks = (text: string) => {
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const parts = text.split(urlRegex);
-    
-    return parts.map((part, index) => {
-      if (part.match(urlRegex)) {
-        return (
-          <a
-            key={index}
-            href={part}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:text-blue-800 underline dark:text-blue-400 dark:hover:text-blue-300"
-          >
-            {part}
-          </a>
-        );
-      }
-      return part;
-    });
-  };
-
-  // Fetch FAQs from the database
   useEffect(() => {
     const fetchFaqs = async () => {
       try {
@@ -81,8 +60,6 @@ export default function Chat() {
           .limit(3);
 
         if (error) throw error;
-
-        // Update predefined options with the FAQ questions
         const faqQuestions = faqs?.map(faq => faq.question) || [];
         setPredefinedOptions([...faqQuestions, 'I want to submit a ticket']);
       } catch (error) {
@@ -93,16 +70,30 @@ export default function Chat() {
     fetchFaqs();
   }, []);
 
-  const scrollToBottom = () => {
+  useEffect(() => {
     const messagesContainer = messagesEndRef.current?.parentElement;
     if (messagesContainer) {
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
-  };
-
-  useEffect(() => {
-    scrollToBottom();
   }, [messages]);
+
+  const fetchSimilarQuestions = async (query: string) => {
+    try {
+      const { data: faqs, error } = await supabase
+        .from('faqs')
+        .select('question')
+        .textSearch('question', query.split(' ').join(' & '), {
+          type: 'plain',
+          config: 'english'
+        })
+        .limit(3);
+
+      if (error) throw error;
+      return faqs?.map(faq => faq.question).filter(q => !messages[messages.length - 1]?.content.includes(q)) || [];
+    } catch (error) {
+      return [];
+    }
+  };
 
   const handleEditMessage = (messageId: string, newContent: string) => {
     setEditedContent(newContent);
@@ -110,31 +101,20 @@ export default function Chat() {
 
   const handleSaveEdit = async (messageId: string) => {
     if (!editedContent.trim()) return;
-    
     setIsLoading(true);
     try {
-      // Update the user message
       setMessages(prev => prev.map(msg => 
         msg.id === messageId ? { ...msg, content: editedContent } : msg
       ));
-
-      // Find and remove the old assistant response
       setMessages(prev => prev.filter(msg => msg.parentId !== messageId));
-
-      // Get new response from API
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: editedContent }),
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to get response');
-      }
-
+      if (!response.ok) throw new Error('Failed to get response');
       const data = await response.json();
+      const suggestions = await fetchSimilarQuestions(editedContent);
       const assistantMessage: Message = {
         role: 'assistant',
         content: data.response || 'I apologize, but I could not process your request at this time.',
@@ -142,12 +122,12 @@ export default function Chat() {
         source: data.source,
         id: `assistant-${Date.now()}`,
         parentId: messageId,
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        suggestions
       };
-
       setMessages(prev => [...prev, assistantMessage]);
+      setSimilarQuestions(suggestions);
     } catch (error) {
-      console.error('Error processing message:', error);
       const errorMessage: Message = {
         role: 'assistant',
         content: 'Sorry, I encountered an error processing your message. Please try again.',
@@ -177,26 +157,66 @@ export default function Chat() {
     try {
       await navigator.clipboard.writeText(content);
       setCopiedMessageId(messageId);
-      setTimeout(() => setCopiedMessageId(null), 2000); // Reset after 2 seconds
+      setTimeout(() => setCopiedMessageId(null), 2000);
     } catch (err) {
       console.error('Failed to copy text: ', err);
     }
   };
 
+  const handleRegenerate = async (message: Message) => {
+    setRegeneratingId(message.id || '');
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: message.parentId ? messages.find(m => m.id === message.parentId)?.content : message.content }),
+      });
+      if (!response.ok) throw new Error('Failed to get response');
+      const data = await response.json();
+      const suggestions = await fetchSimilarQuestions(message.content);
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === message.id
+            ? {
+                ...msg,
+                content: data.response || 'I apologize, but I could not process your request at this time.',
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                suggestions
+              }
+            : msg
+        )
+      );
+      setSimilarQuestions(suggestions);
+    } catch (error) {
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === message.id
+            ? {
+                ...msg,
+                content: 'Sorry, I encountered an error regenerating the response. Please try again.',
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              }
+            : msg
+        )
+      );
+    } finally {
+      setIsLoading(false);
+      setRegeneratingId(null);
+    }
+  };
+
   const isMessageEditable = (message: Message, index: number) => {
     if (message.role !== 'user') return false;
-    // Find the last user message index
     const lastUserMessageIndex = messages
       .map((msg, idx) => ({ msg, idx }))
       .filter(({ msg }) => msg.role === 'user')
       .pop()?.idx;
-    
     return lastUserMessageIndex === index;
   };
 
   const handleSend = async (content: string) => {
     if (!content.trim()) return;
-
     setShowOptions(false);
     setIsLoading(true);
     const userMessage: Message = {
@@ -206,24 +226,17 @@ export default function Chat() {
       id: Date.now().toString(),
       createdAt: Date.now()
     };
-
     setMessages(prev => [...prev, userMessage]);
     setInput('');
-
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: content }),
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to get response');
-      }
-
+      if (!response.ok) throw new Error('Failed to get response');
       const data = await response.json();
+      const suggestions = await fetchSimilarQuestions(content);
       const assistantMessage: Message = {
         role: 'assistant',
         content: data.response || 'I apologize, but I could not process your request at this time.',
@@ -231,12 +244,12 @@ export default function Chat() {
         source: data.source,
         id: `assistant-${Date.now()}`,
         parentId: userMessage.id,
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        suggestions
       };
-
       setMessages(prev => [...prev, assistantMessage]);
+      setSimilarQuestions(suggestions);
     } catch (error) {
-      console.error('Error processing message:', error);
       const errorMessage: Message = {
         role: 'assistant',
         content: 'Sorry, I encountered an error processing your message. Please try again.',
@@ -251,6 +264,22 @@ export default function Chat() {
     }
   };
 
+  const handleNewChat = () => {
+    setMessages([
+      {
+        role: 'assistant',
+        content: 'Hello! How can I help you today?',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isInitialMessage: true,
+        id: 'initial',
+        createdAt: Date.now()
+      }
+    ]);
+    setInput('');
+    setShowOptions(true);
+    setSimilarQuestions([]);
+  };
+
   return (
     <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
       <ThemeInit />
@@ -262,6 +291,14 @@ export default function Chat() {
           </div>
           <h1 className="text-xl font-semibold">LPU FAQ Assistant</h1>
         </div>
+        <button
+          onClick={handleNewChat}
+          className="ml-4 px-3 py-1 rounded bg-white text-[#6B0000] hover:bg-gray-100 dark:bg-gray-900 dark:hover:bg-gray-800 border border-[#6B0000] text-sm"
+          title="Start a new chat"
+        >
+          <span>+ </span>
+          <span>New Chat</span>
+        </button>
       </div>
 
       {/* Messages Container */}
@@ -269,9 +306,7 @@ export default function Chat() {
         {messages.map((message, index) => (
           <div
             key={message.id || index}
-            className={`flex ${
-              message.role === 'user' ? 'justify-end' : 'justify-start'
-            }`}
+            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             {message.role === 'assistant' && (
               <div className="w-8 h-8 bg-[#6B0000] rounded-full flex items-center justify-center mr-2">
@@ -354,7 +389,7 @@ export default function Chat() {
                   </div>
                 </div>
               ) : (
-                <div className="text-sm prose prose-sm max-w-none dark:prose-invert">
+                <div className="text-sm prose prose-sm max-w-none dark:prose-invert select-text">
                   <ReactMarkdown 
                     remarkPlugins={[remarkGfm]}
                     components={{
@@ -422,17 +457,44 @@ export default function Chat() {
                         </>
                       )}
                     </button>
+                    <button
+                      onClick={() => handleRegenerate(message)}
+                      disabled={isLoading || regeneratingId === message.id}
+                      className="flex items-center space-x-1.5 text-gray-600 hover:text-[#6B0000] dark:text-gray-300 dark:hover:text-[#ffb3b3] transition-colors duration-200"
+                      title="Regenerate response"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-4 h-4 ${regeneratingId === message.id ? 'animate-spin' : ''}`}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12a7.5 7.5 0 017.5-7.5m0 0V3m0 1.5l2.25 2.25M19.5 12a7.5 7.5 0 01-7.5 7.5m0 0v1.5m0-1.5l-2.25-2.25" />
+                      </svg>
+                      <span className="text-sm">Regenerate</span>
+                    </button>
                   </div>
-                <button
-                  onClick={() => window.location.href = '/ticket'}
+                  <button
+                    onClick={() => window.location.href = '/ticket'}
                     className="flex items-center space-x-1.5 text-[#6B0000] hover:text-[#8B0000] dark:hover:text-[#ffb3b3] transition-colors duration-200"
                     title="Submit a ticket"
-                >
+                  >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
                     </svg>
                     <span className="text-sm">Submit Ticket</span>
-                </button>
+                  </button>
+                </div>
+              )}
+              {message.suggestions && message.suggestions.length > 0 && (
+                <div className="mt-2">
+                  <div className="text-xs text-gray-500 dark:text-gray-300 mb-1">Similar questions:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {message.suggestions.map((q, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleSend(q)}
+                        className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-xs hover:bg-[#6B0000] hover:text-white dark:hover:bg-[#6B0000] dark:hover:text-white transition-colors"
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
               <p className="text-xs mt-1 opacity-70 dark:text-gray-300">

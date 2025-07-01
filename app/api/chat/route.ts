@@ -43,12 +43,12 @@ async function extractPDFText(pdfUrl: string): Promise<string> {
 }
 
 // Function to analyze PDF content with Gemini
-async function analyzePDFContent(content: string, question: string, source: string): Promise<string> {
+async function analyzePDFContent(content: string, question: string, sources: string): Promise<string> {
   if (!process.env.GOOGLE_AI_API_KEY) {
     throw new Error('Google AI API key is not configured');
   }
 
-  const prompt = `You are an AI assistant specifically for Lyceum of the Philippines University (LPU). Please answer the following question based on the document content. Always refer to the institution as "Lyceum of the Philippines University" or "LPU". If the information comes from the Student Handbook, start your response with "According to the LPU Student Handbook". For all other documents, provide the answer directly without mentioning the source, but always ensure you're referring to LPU.
+  const prompt = `You are an AI assistant specifically for Lyceum of the Philippines University (LPU). Please answer the following question based on the provided document content. Always refer to the institution as "Lyceum of the Philippines University" or "LPU". If the information comes from the Student Handbook, start your response with "According to the LPU Student Handbook". For all other documents, provide the answer directly without mentioning the source, but always ensure you're referring to LPU.
 
 Use markdown formatting in your response:
 - Use **bold** for important terms or key points
@@ -60,10 +60,10 @@ Use markdown formatting in your response:
 
 Question: ${question}
 
-Document Content:
+Document Content (from: ${sources}):
 ${content}
 
-Please provide a clear and concise answer based on the document content. Always specify that you're referring to LPU. If the information is not found in the document, say so.`;
+Please provide a clear and concise answer based on the document content. Always specify that you're referring to LPU. If the information is not found in the document, say so, but try to infer or synthesize an answer if possible based on related content.`;
 
   const apiResponse = await fetch(`${GEMINI_API_ENDPOINT}?key=${process.env.GOOGLE_AI_API_KEY}`, {
     method: 'POST',
@@ -91,13 +91,28 @@ Please provide a clear and concise answer based on the document content. Always 
 
   const data = await apiResponse.json();
   let answer = data.candidates?.[0]?.content?.parts?.[0]?.text || 'I could not find a clear answer in the LPU documents.';
-  
+
   // Only keep "According to the LPU Student Handbook" if it's from the handbook
-  if (source !== 'Student Handbook 2024') {
+  if (!sources.includes('Student Handbook 2024')) {
     answer = answer.replace(/^(According to|Based on|From) the (document|Student Handbook)[.,:]\s*/i, '');
   }
-  
+
   return answer;
+}
+
+function getRelevantSiteLink(topic: string) {
+  const map: Record<string, string> = {
+    tuition: 'https://lpumanila.edu.ph/admissions/tuition-fees/',
+    payment: 'https://lpumanila.edu.ph/admissions/payment-options/',
+    scholarship: 'https://lpumanila.edu.ph/admissions/scholarships/',
+    handbook: 'https://lpumanila.edu.ph/student-handbook/',
+    discipline: 'https://lpumanila.edu.ph/student-discipline/',
+    programs: 'https://lpumanila.edu.ph/academics/',
+  };
+  for (const key in map) {
+    if (topic.includes(key)) return map[key];
+  }
+  return 'https://lpumanila.edu.ph/';
 }
 
 export async function POST(request: Request) {
@@ -111,7 +126,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // First, search for similar questions in FAQ database
+    if (/submit.*ticket|open.*ticket|file.*ticket|create.*ticket|support.*ticket|raise.*ticket/i.test(message)) {
+      return NextResponse.json({
+        response: `You can submit a support ticket here: [LPU Ticket Page](/ticket)`,
+        source: 'Ticket Redirect'
+      });
+    }
+
     const searchQuery = message.toLowerCase().split(' ').join(' & ');
     const { data: faqMatches, error: faqError } = await supabase
       .from('faqs')
@@ -127,13 +148,12 @@ export async function POST(request: Request) {
     }
 
     if (faqMatches && faqMatches.length > 0) {
-      return NextResponse.json({ response: faqMatches[0].answer });
+      return NextResponse.json({ response: faqMatches[0].answer, source: 'FAQ Database' });
     }
 
-    // Search in PDF content
     const { data: pdfMatches, error: pdfError } = await supabase
       .from('pdf_documents')
-      .select('title, content')
+      .select('title, content, url')
       .textSearch('content', searchQuery, {
         type: 'websearch',
         config: 'english'
@@ -148,17 +168,83 @@ export async function POST(request: Request) {
       );
     }
 
+    const topicKeywords = ['tuition', 'payment', 'scholarship', 'handbook', 'discipline', 'programs'];
+    const lowerMsg = message.toLowerCase();
+    const foundTopic = topicKeywords.find(kw => lowerMsg.includes(kw));
+    const siteLink = foundTopic ? getRelevantSiteLink(foundTopic) : 'https://lpumanila.edu.ph/';
+
     if (pdfMatches && pdfMatches.length > 0) {
-      // Analyze the most relevant PDF content with Gemini
-      const analysis = await analyzePDFContent(pdfMatches[0].content, message, pdfMatches[0].title);
-      return NextResponse.json({ 
-        response: analysis,
-        source: pdfMatches[0].title
+      // Combine content from top matches for broader context
+      const combinedContent = pdfMatches
+        .map((doc) => `---\nSource: ${doc.title}\n${doc.content}`)
+        .join('\n\n');
+      const sources = pdfMatches.map(doc => doc.title).join(', ');
+
+      let analysis = await analyzePDFContent(combinedContent, message, sources);
+
+      // If Gemini says "not found" or similar, fallback to general Gemini answer
+      if (/not found|does not mention|could not find|not available|no information/i.test(analysis)) {
+        const fallbackPrompt = `You are a helpful assistant for Lyceum of the Philippines University (LPU). Answer the following question for a student as best as you can, even if the information is not directly available in the documents. Always refer to the institution as "Lyceum of the Philippines University" or "LPU".
+
+Keep your answer concise and relevant. If the user asks about a specific topic (e.g., tuition), focus only on that topic. If appropriate, recommend the user to visit the relevant page: ${siteLink}
+
+If the question is too complex, sensitive, or not answerable by the chatbot, recommend the user to message the official Facebook page for human assistance: https://www.facebook.com/profile.php?id=100080128906615
+
+Use markdown formatting in your response:
+- Use **bold** for important terms or key points
+- Use *italics* for emphasis
+- Use bullet points (-) for lists
+- Use numbered lists (1., 2., etc.) for steps or sequences
+- Use \`code\` for specific values or codes
+- Use > for important notes or warnings
+
+Question: ${message}`;
+
+        const fallbackResponse = await fetch(`${GEMINI_API_ENDPOINT}?key=${process.env.GOOGLE_AI_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: fallbackPrompt }] }],
+            generationConfig: { temperature: 0.7, topK: 40, topP: 0.95, maxOutputTokens: 1024 },
+          }),
+        });
+        const fallbackData = await fallbackResponse.json();
+        let fallbackText = fallbackData.candidates?.[0]?.content?.parts?.[0]?.text || analysis;
+        // Add site link if not already present
+        if (siteLink && !fallbackText.includes(siteLink)) {
+          fallbackText += `\n\n> For more info, visit: [LPU Manila](${siteLink})`;
+        }
+        return NextResponse.json({ response: fallbackText, source: 'General LPU knowledge' });
+      }
+
+      // Add site/source link if relevant
+      let siteLinkToShow = '';
+      if (foundTopic && siteLink && !analysis.includes(siteLink)) {
+        siteLinkToShow = `\n\n> For more info, visit: [LPU Manila](${siteLink})`;
+      }
+      // If PDF has a URL, add it as a source
+      let pdfSourceLink = '';
+      if (pdfMatches[0]?.url && !analysis.includes(pdfMatches[0].url)) {
+        pdfSourceLink = `\n\n> Source: [${pdfMatches[0].title}](${pdfMatches[0].url})`;
+      }
+
+      // Limit answer length unless necessary
+      if (analysis.length > 1200) {
+        analysis = analysis.slice(0, 1100) + '...';
+      }
+
+      return NextResponse.json({
+        response: analysis + siteLinkToShow + pdfSourceLink,
+        source: sources
       });
     }
 
     // If no PDF matches, use Gemini for general response
     const prompt = `You are a helpful assistant specifically for Lyceum of the Philippines University (LPU) students. Please answer the following question, always referring to the institution as "Lyceum of the Philippines University" or "LPU".
+
+Keep your answer concise and relevant. If the user asks about a specific topic (e.g., tuition), focus only on that topic. If appropriate, recommend the user to visit the relevant page: ${siteLink}
+
+If the question is too complex, sensitive, or not answerable by the chatbot, recommend the user to message the official Facebook page for human assistance: https://www.facebook.com/profile.php?id=100080128906615
 
 Use markdown formatting in your response:
 - Use **bold** for important terms or key points
@@ -185,7 +271,7 @@ Question: ${message}`;
           temperature: 0.7,
           topK: 40,
           topP: 0.95,
-          maxOutputTokens: 2048,
+          maxOutputTokens: 1024,
         },
       }),
     });
@@ -195,18 +281,28 @@ Question: ${message}`;
     }
 
     const data = await response.json();
-    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    let generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    // Add site/source link if relevant
+    if (siteLink && !generatedText?.includes(siteLink)) {
+      generatedText += `\n\n> For more info, visit: [LPU Manila](${siteLink})`;
+    }
+
+    // Limit answer length unless necessary
+    if (generatedText && generatedText.length > 1200) {
+      generatedText = generatedText.slice(0, 1100) + '...';
+    }
 
     if (!generatedText) {
       throw new Error('No response generated from AI');
     }
 
-    return NextResponse.json({ response: generatedText });
+    return NextResponse.json({ response: generatedText, source: 'General LPU knowledge' });
   } catch (error: any) {
     console.error('Error processing chat:', error);
     let errorMessage = 'Failed to process message';
     let statusCode = 500;
-    
+
     if (error.message.includes('not supported') || error.message.includes('model')) {
       errorMessage = 'The AI service is currently unavailable. Please try again later.';
     } else if (error.message.includes('quota') || error.message.includes('rate')) {
@@ -220,12 +316,12 @@ Question: ${message}`;
     }
 
     return NextResponse.json(
-      { 
-        error: errorMessage, 
+      {
+        error: errorMessage,
         details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-        type: error.constructor.name 
+        type: error.constructor.name
       },
       { status: statusCode }
     );
   }
-} 
+}
