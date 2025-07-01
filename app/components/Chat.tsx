@@ -5,6 +5,7 @@ import { searchPDFContent } from '@/app/services/pdfService';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import ThemeInit from './ThemeInit'; 
 
 interface Message {
   role: 'user' | 'assistant';
@@ -59,7 +60,7 @@ export default function Chat() {
             href={part}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-600 hover:text-blue-800 underline"
+            className="text-blue-600 hover:text-blue-800 underline dark:text-blue-400 dark:hover:text-blue-300"
           >
             {part}
           </a>
@@ -251,9 +252,10 @@ export default function Chat() {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
+      <ThemeInit />
       {/* Header */}
-      <div className="bg-[#6B0000] text-white p-4 flex items-center justify-between">
+      <div className="bg-[#6B0000] text-white p-4 flex items-center justify-between dark:bg-[#2d0101]">
         <div className="flex items-center space-x-2">
           <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
             <span className="text-[#6B0000] font-bold">LPU</span>
@@ -263,7 +265,7 @@ export default function Chat() {
       </div>
 
       {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900">
         {messages.map((message, index) => (
           <div
             key={message.id || index}
@@ -280,27 +282,27 @@ export default function Chat() {
               className={`max-w-[80%] rounded-lg p-3 relative group ${
                 message.role === 'user'
                   ? 'bg-[#6B0000] text-white'
-                  : 'bg-gray-100 text-gray-800'
+                  : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'
               }`}
             >
               {message.role === 'user' && isMessageEditable(message, index) && (
                 <div className="absolute -top-2 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                  <div className="flex space-x-1 bg-white rounded-lg shadow-lg p-1">
+                  <div className="flex space-x-1 bg-white dark:bg-gray-900 rounded-lg shadow-lg p-1">
                     <button
                       onClick={() => {
                         setEditingMessageId(message.id || '');
                         setEditedContent(message.content);
                       }}
-                      className="p-1 hover:bg-gray-100 rounded"
+                      className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
                       title="Edit message"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-gray-600">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-gray-600 dark:text-gray-300">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
                       </svg>
                     </button>
                     <button
                       onClick={() => handleDeleteMessage(message.id || '')}
-                      className="p-1 hover:bg-gray-100 rounded"
+                      className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
                       title="Delete message"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-red-600">
@@ -312,7 +314,7 @@ export default function Chat() {
               )}
               {message.role === 'user' && !isMessageEditable(message, index) && (
                 <div className="absolute -top-2 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                  <div className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded">
+                  <div className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-300 text-xs px-2 py-1 rounded">
                     Only the last message can be edited
                   </div>
                 </div>
@@ -325,14 +327,14 @@ export default function Chat() {
                   <textarea
                     value={editedContent}
                     onChange={(e) => handleEditMessage(message.id || '', e.target.value)}
-                    className="w-full p-2 border rounded-lg focus:outline-none focus:border-[#6B0000] focus:ring-1 focus:ring-[#6B0000] text-gray-800 min-h-[100px] resize-y"
+                    className="w-full p-2 border rounded-lg focus:outline-none focus:border-[#6B0000] focus:ring-1 focus:ring-[#6B0000] text-gray-800 dark:text-gray-100 dark:bg-gray-900 min-h-[100px] resize-y"
                     autoFocus
                     placeholder="Edit your message..."
                   />
                   <div className="flex justify-end space-x-2">
                     <button
                       onClick={handleCancelEdit}
-                      className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 flex items-center space-x-1"
+                      className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100 flex items-center space-x-1"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -352,14 +354,14 @@ export default function Chat() {
                   </div>
                 </div>
               ) : (
-                <div className="text-sm prose prose-sm max-w-none">
+                <div className="text-sm prose prose-sm max-w-none dark:prose-invert">
                   <ReactMarkdown 
                     remarkPlugins={[remarkGfm]}
                     components={{
                       a: ({node, ...props}) => (
                         <a 
                           {...props} 
-                          className="text-blue-600 hover:text-blue-800 underline"
+                          className="text-blue-600 hover:text-blue-800 underline dark:text-blue-400 dark:hover:text-blue-300"
                           target="_blank"
                           rel="noopener noreferrer"
                         />
@@ -371,18 +373,18 @@ export default function Chat() {
                         <ol {...props} className="list-decimal pl-4 space-y-1" />
                       ),
                       li: ({node, ...props}) => (
-                        <li {...props} className="text-gray-800" />
+                        <li {...props} className="text-gray-800 dark:text-gray-100" />
                       ),
                       p: ({node, ...props}) => (
                         <p {...props} className="mb-2" />
                       ),
                       blockquote: ({node, ...props}) => (
-                        <blockquote {...props} className="border-l-4 border-[#6B0000] pl-4 py-1 my-2 bg-gray-50" />
+                        <blockquote {...props} className="border-l-4 border-[#6B0000] pl-4 py-1 my-2 bg-gray-50 dark:bg-gray-800" />
                       ),
                       code: ({node, inline, ...props}) => (
                         inline ? 
-                          <code {...props} className="bg-gray-200 rounded px-1 py-0.5" /> :
-                          <code {...props} className="block bg-gray-200 rounded p-2 my-2" />
+                          <code {...props} className="bg-gray-200 dark:bg-gray-700 rounded px-1 py-0.5" /> :
+                          <code {...props} className="block bg-gray-200 dark:bg-gray-700 rounded p-2 my-2" />
                       ),
                       strong: ({node, ...props}) => (
                         <strong {...props} className="font-bold text-[#6B0000]" />
@@ -397,11 +399,11 @@ export default function Chat() {
                 </div>
               )}
               {message.role === 'assistant' && !message.isInitialMessage && (
-                <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => handleCopyMessage(message.content, message.id || '')}
-                      className="flex items-center space-x-1.5 text-gray-600 hover:text-[#6B0000] transition-colors duration-200"
+                      className="flex items-center space-x-1.5 text-gray-600 hover:text-[#6B0000] dark:text-gray-300 dark:hover:text-[#ffb3b3] transition-colors duration-200"
                       title="Copy response"
                     >
                       {copiedMessageId === message.id ? (
@@ -423,7 +425,7 @@ export default function Chat() {
                   </div>
                 <button
                   onClick={() => window.location.href = '/ticket'}
-                    className="flex items-center space-x-1.5 text-[#6B0000] hover:text-[#8B0000] transition-colors duration-200"
+                    className="flex items-center space-x-1.5 text-[#6B0000] hover:text-[#8B0000] dark:hover:text-[#ffb3b3] transition-colors duration-200"
                     title="Submit a ticket"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
@@ -433,7 +435,7 @@ export default function Chat() {
                 </button>
                 </div>
               )}
-              <p className="text-xs mt-1 opacity-70">
+              <p className="text-xs mt-1 opacity-70 dark:text-gray-300">
                 {message.timestamp}
               </p>
             </div>
@@ -445,7 +447,7 @@ export default function Chat() {
               <button
                 key={index}
                 onClick={() => handleSend(option)}
-                className="w-full text-left p-3 rounded-full border-2 border-[#6B0000] text-[#6B0000] hover:bg-[#6B0000] hover:text-white transition-colors duration-200 flex items-center"
+                className="w-full text-left p-3 rounded-full border-2 border-[#6B0000] text-[#6B0000] hover:bg-[#6B0000] hover:text-white transition-colors duration-200 flex items-center dark:bg-gray-900 dark:border-[#6B0000] dark:hover:bg-[#6B0000] dark:hover:text-white"
               >
                 {option}
               </button>
@@ -457,11 +459,11 @@ export default function Chat() {
             <div className="w-8 h-8 bg-[#6B0000] rounded-full flex items-center justify-center mr-2">
               <span className="text-white font-bold">LPU</span>
             </div>
-            <div className="bg-gray-100 rounded-lg p-3">
+            <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
               <div className="flex space-x-2">
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+                <div className="w-2 h-2 bg-gray-400 dark:bg-gray-600 rounded-full animate-bounce" />
+                <div className="w-2 h-2 bg-gray-400 dark:bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                <div className="w-2 h-2 bg-gray-400 dark:bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
               </div>
             </div>
           </div>
@@ -470,7 +472,7 @@ export default function Chat() {
       </div>
 
       {/* Input Area */}
-      <div className="border-t p-4 bg-white">
+      <div className="border-t p-4 bg-white dark:bg-gray-950 dark:border-gray-800">
         <div className="flex items-center space-x-2">
           <input
             type="text"
@@ -478,7 +480,7 @@ export default function Chat() {
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend(input)}
             placeholder="Message us"
-            className="flex-1 p-2 border rounded-lg focus:outline-none focus:border-[#6B0000] focus:ring-1 focus:ring-[#6B0000]"
+            className="flex-1 p-2 border rounded-lg focus:outline-none focus:border-[#6B0000] focus:ring-1 focus:ring-[#6B0000] bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
             disabled={isLoading}
           />
           <button
@@ -505,4 +507,4 @@ export default function Chat() {
       </div>
     </div>
   );
-} 
+}
