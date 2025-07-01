@@ -116,7 +116,7 @@ export default function TicketPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <Link 
@@ -129,28 +129,28 @@ export default function TicketPage() {
             Back to Home
           </Link>
         </div>
-        <div className="bg-white shadow rounded-lg p-6">
+        <div className="bg-white dark:bg-gray-950 shadow rounded-lg p-6 border border-gray-200 dark:border-gray-700">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-[#6B0000]">Submit a Support Ticket</h1>
-            <p className="mt-2 text-gray-600">Fill out the form below to submit your support ticket</p>
+            <h1 className="text-3xl font-bold text-[#6B0000] dark:text-[#ffb3b3]">Submit a Support Ticket</h1>
+            <p className="mt-2 text-gray-600 dark:text-gray-300">Fill out the form below to submit your support ticket</p>
           </div>
 
           {submitStatus === 'success' && (
-            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-green-800">Your ticket has been submitted successfully! We'll get back to you soon.</p>
+            <div className="mb-6 p-4 bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 rounded-lg">
+              <p className="text-green-800 dark:text-green-200">Your ticket has been submitted successfully! We'll get back to you soon.</p>
             </div>
           )}
 
           {submitStatus === 'error' && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-800">{errorMessage}</p>
+            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-lg">
+              <p className="text-red-800 dark:text-red-200">{errorMessage}</p>
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
-                <label htmlFor="full_name" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
                   Full Name
                 </label>
                 <input
@@ -159,12 +159,12 @@ export default function TicketPage() {
                   required
                   value={formData.full_name}
                   onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#6B0000] focus:ring-[#6B0000] sm:text-sm"
+                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 shadow-sm focus:border-[#6B0000] focus:ring-[#6B0000] sm:text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
                 />
               </div>
 
               <div>
-                <label htmlFor="email_address" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="email_address" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
                   Email Address
                 </label>
                 <input
@@ -173,13 +173,13 @@ export default function TicketPage() {
                   required
                   value={formData.email_address}
                   onChange={(e) => setFormData({ ...formData, email_address: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#6B0000] focus:ring-[#6B0000] sm:text-sm"
+                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 shadow-sm focus:border-[#6B0000] focus:ring-[#6B0000] sm:text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="subject" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="subject" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
                 Subject
               </label>
               <input
@@ -188,12 +188,12 @@ export default function TicketPage() {
                 required
                 value={formData.subject}
                 onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#6B0000] focus:ring-[#6B0000] sm:text-sm"
+                className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 shadow-sm focus:border-[#6B0000] focus:ring-[#6B0000] sm:text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
               />
             </div>
 
             <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
                 Description
               </label>
               <textarea
@@ -202,20 +202,20 @@ export default function TicketPage() {
                 rows={4}
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#6B0000] focus:ring-[#6B0000] sm:text-sm"
+                className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 shadow-sm focus:border-[#6B0000] focus:ring-[#6B0000] sm:text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
               />
             </div>
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
-                <label htmlFor="priority" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="priority" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
                   Priority
                 </label>
                 <select
                   id="priority"
                   value={formData.priority}
                   onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#6B0000] focus:ring-[#6B0000] sm:text-sm"
+                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 shadow-sm focus:border-[#6B0000] focus:ring-[#6B0000] sm:text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
@@ -224,14 +224,14 @@ export default function TicketPage() {
               </div>
 
               <div>
-                <label htmlFor="department" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="department" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
                   Department
                 </label>
                 <select
                   id="department"
                   value={formData.department}
                   onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#6B0000] focus:ring-[#6B0000] sm:text-sm"
+                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 shadow-sm focus:border-[#6B0000] focus:ring-[#6B0000] sm:text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
                 >
                   <option value="general">General Inquiry</option>
                   <option value="admissions">Admissions</option>

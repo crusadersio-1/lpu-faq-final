@@ -17,7 +17,14 @@ type Ticket = {
   priority: string;
   department: string;
   created_at: string;
+  status?: string; // DB value: 'open' | 'closed'
 };
+
+const dbToUiStatus = (dbStatus: string | undefined): 'In progress' | 'Resolved' =>
+  dbStatus === 'closed' ? 'Resolved' : 'In progress';
+
+const uiToDbStatus = (uiStatus: 'In progress' | 'Resolved') =>
+  uiStatus === 'In progress' ? 'open' : 'closed';
 
 export default function TicketsPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -42,9 +49,8 @@ export default function TicketsPage() {
           schema: 'public',
           table: 'tickets'
         },
-        async (payload) => {
-          console.log('Real-time change received:', payload);
-          await fetchTickets(); // Refresh the entire list when any change occurs
+        async () => {
+          await fetchTickets();
         }
       )
       .subscribe();
@@ -52,6 +58,7 @@ export default function TicketsPage() {
     return () => {
       supabase.removeChannel(channel);
     };
+    // eslint-disable-next-line
   }, [sortField, sortDirection]);
 
   const fetchTickets = async () => {
@@ -64,9 +71,13 @@ export default function TicketsPage() {
 
       if (error) throw error;
 
-      setTickets(data as Ticket[] || []);
+      setTickets(
+        (data as Ticket[] || []).map((ticket) => ({
+          ...ticket,
+          status: dbToUiStatus(ticket.status),
+        }))
+      );
     } catch (err: any) {
-      console.error('Error fetching tickets:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -75,10 +86,8 @@ export default function TicketsPage() {
 
   const handleSort = (field: SortField) => {
     if (field === sortField) {
-      // If clicking the same field, toggle direction
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
-      // If clicking a new field, set it and default to ascending
       setSortField(field);
       setSortDirection('asc');
     }
@@ -101,15 +110,10 @@ export default function TicketsPage() {
           throw error;
         }
 
-        // Immediately update the UI
         setTickets(prevTickets => prevTickets.filter(ticket => ticket.id !== id));
-        
-        // Fetch the latest data
         await fetchTickets();
-        
         alert('Ticket deleted successfully!');
       } catch (error: any) {
-        console.error('Error deleting ticket:', error);
         alert('Failed to delete ticket: ' + error.message);
       }
     }
@@ -125,6 +129,33 @@ export default function TicketsPage() {
         return 'bg-green-100 text-green-800 border border-green-200';
       default:
         return 'bg-gray-100 text-gray-800 border border-gray-200';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    if (status === 'Resolved') {
+      return 'bg-green-100 text-green-800 border border-green-200';
+    }
+    return 'bg-blue-100 text-blue-800 border border-blue-200';
+  };
+
+  const handleStatusChange = async (id: string, newStatus: 'In progress' | 'Resolved') => {
+    try {
+      const dbStatus = uiToDbStatus(newStatus);
+      const { error } = await supabase
+        .from('tickets')
+        .update({ status: dbStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setTickets((prev) =>
+        prev.map((ticket) =>
+          ticket.id === id ? { ...ticket, status: newStatus } : ticket
+        )
+      );
+    } catch (err) {
+      alert('Failed to update status');
     }
   };
 
@@ -173,7 +204,7 @@ export default function TicketsPage() {
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div>
-          <h1 className="text-3xl font-bold text-[#6B0000]">Support Tickets</h1>
+            <h1 className="text-3xl font-bold text-[#6B0000]">Support Tickets</h1>
             <p className="mt-2 text-gray-600">Manage and monitor all support tickets</p>
           </div>
           <Link
@@ -195,14 +226,14 @@ export default function TicketsPage() {
                 Search Tickets
               </label>
               <div className="relative">
-              <input
+                <input
                   id="search"
-                type="text"
+                  type="text"
                   placeholder="Search by name, email, subject..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full rounded-md border-gray-300 shadow-sm focus:ring-[#6B0000] focus:border-[#6B0000] sm:text-sm pl-10"
-              />
+                />
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
@@ -214,19 +245,19 @@ export default function TicketsPage() {
               <label htmlFor="department" className="block text-sm font-medium text-gray-700 mb-1">
                 Filter by Department
               </label>
-            <select
+              <select
                 id="department"
-              value={selectedDepartment}
-              onChange={(e) => setSelectedDepartment(e.target.value)}
+                value={selectedDepartment}
+                onChange={(e) => setSelectedDepartment(e.target.value)}
                 className="w-full rounded-md border-gray-300 shadow-sm focus:ring-[#6B0000] focus:border-[#6B0000] sm:text-sm"
-            >
-              <option value="">All Departments</option>
-              {departments.map((dept) => (
-                <option key={dept} value={dept}>
-                  {dept.charAt(0).toUpperCase() + dept.slice(1)}
-                </option>
-              ))}
-            </select>
+              >
+                <option value="">All Departments</option>
+                {departments.map((dept) => (
+                  <option key={dept} value={dept}>
+                    {dept.charAt(0).toUpperCase() + dept.slice(1)}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
@@ -294,6 +325,10 @@ export default function TicketsPage() {
                       <span>Department</span>
                       <span className="text-gray-400">{getSortIcon('department')}</span>
                     </div>
+                  </th>
+                  {/* Status column header */}
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
                   </th>
                   <th 
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors duration-200"
@@ -396,6 +431,23 @@ export default function TicketsPage() {
                         {ticket.department.charAt(0).toUpperCase() + ticket.department.slice(1)}
                       </span>
                     </td>
+                    {/* Status column */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <select
+                        value={ticket.status || 'In progress'}
+                        onChange={(e) =>
+                          handleStatusChange(
+                            ticket.id,
+                            e.target.value as 'In progress' | 'Resolved'
+                          )
+                        }
+                        className={`px-3 py-1 rounded-full text-xs font-semibold border focus:outline-none ${getStatusColor(ticket.status || 'In progress')}`}
+                        style={{ minWidth: 110 }}
+                      >
+                        <option value="In progress">In progress</option>
+                        <option value="Resolved">Resolved</option>
+                      </select>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {new Date(ticket.created_at).toLocaleDateString()}
                     </td>
@@ -420,4 +472,4 @@ export default function TicketsPage() {
       <ChatbotButton />
     </div>
   );
-} 
+}
