@@ -13,6 +13,7 @@ interface FAQItem {
   id: number;
   question: string;
   answer: string;
+  category?: string;
 }
 
 export default function FAQPage() {
@@ -20,24 +21,30 @@ export default function FAQPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [categories, setCategories] = useState<string[]>([]);
+  const [search, setSearch] = useState('');
   const supabase = createClientComponentClient();
 
   useEffect(() => {
     const fetchFaqs = async () => {
       setLoading(true);
       setError(null);
-      // Fetch data from the 'faqs' table
-      // Adjust table/column names if different
       const { data, error } = await supabase
+        // Fetch data from the 'faqs' table
+        // Adjust table/column names if different
         .from('faqs')
-        .select('id, question, answer');
+        .select('id, question, answer, category');
 
       if (error) {
-        console.error('Error fetching FAQs:', error);
         setError('Failed to load FAQs. Please try again later.');
         setFaqs([]);
       } else {
         setFaqs(data || []);
+        const uniqueCategories = Array.from(
+          new Set((data || []).map((faq: FAQItem) => faq.category || 'General'))
+        );
+        setCategories(['All', ...uniqueCategories]);
       }
       setLoading(false);
     };
@@ -52,6 +59,23 @@ export default function FAQPage() {
   const toggleAccordion = (index: number) => {
     setOpenIndex(openIndex === index ? null : index);
   };
+
+  const filteredFaqs = faqs.filter((faq) => {
+    const matchesCategory =
+      selectedCategory === 'All' ||
+      (faq.category || 'General') === selectedCategory;
+    const matchesSearch =
+      faq.question.toLowerCase().includes(search.toLowerCase()) ||
+      faq.answer.toLowerCase().includes(search.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
+  const groupedFaqs: { [cat: string]: FAQItem[] } = {};
+  filteredFaqs.forEach((faq) => {
+    const cat = faq.category || 'General';
+    if (!groupedFaqs[cat]) groupedFaqs[cat] = [];
+    groupedFaqs[cat].push(faq);
+  });
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 relative">
@@ -98,6 +122,52 @@ export default function FAQPage() {
       <main className="flex-grow container mx-auto px-4 py-12">
         <h1 className="text-3xl font-bold text-center text-[#8B0000] mb-4">Frequently Asked Questions</h1>
         <p className="text-center text-gray-600 dark:text-gray-300 mb-12">Find answers to the most common questions about our school and services.</p>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
+          <div>
+            <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+              Filter by Category
+            </label>
+            <div className="relative flex items-center w-full">
+              <select
+                id="category"
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full p-2 pr-8 border rounded-lg focus:outline-none focus:border-[#6B0000] focus:ring-1 focus:ring-[#6B0000] bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 appearance-none"
+              >
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute right-3">
+                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </span>
+            </div>
+          </div>
+          <div className="flex-1 md:ml-8">
+            <label htmlFor="faq-search" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+              Search FAQs
+            </label>
+            <div className="relative flex items-center w-full">
+              <input
+                id="faq-search"
+                type="text"
+                placeholder="Type keywords to search..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full p-2 pr-10 border rounded-lg focus:outline-none focus:border-[#6B0000] focus:ring-1 focus:ring-[#6B0000] bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+              />
+              <span className="absolute right-3">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 20 20" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" />
+                </svg>
+              </span>
+            </div>
+          </div>
+        </div>
 
         <div className="max-w-3xl mx-auto bg-white dark:bg-gray-950 p-8 rounded-lg shadow-md dark:shadow-lg">
           <h2 className="text-2xl font-semibold text-[#8B0000] mb-6">Frequently Asked Questions</h2>
@@ -106,29 +176,39 @@ export default function FAQPage() {
           {error && <p className="text-center text-red-600 dark:text-red-400">{error}</p>}
           
           {!loading && !error && (
-            <div className="space-y-4">
-              {faqs.length === 0 ? (
+            <div className="space-y-8">
+              {Object.keys(groupedFaqs).length === 0 ? (
                 <p className="text-center text-gray-500 dark:text-gray-400">No FAQs found.</p>
               ) : (
-                faqs.map((faq, index) => (
-                  <div key={faq.id} className="border-b border-gray-200 dark:border-gray-700 last:border-b-0">
-                    <button
-                      onClick={() => toggleAccordion(index)}
-                      className="flex justify-between items-center w-full py-4 text-left font-medium text-gray-700 dark:text-gray-100 hover:text-[#8B0000] focus:outline-none"
-                    >
-                      <span>{faq.question}</span>
-                      <svg 
-                        className={`w-5 h-5 transform transition-transform ${openIndex === index ? 'rotate-180' : ''} text-gray-500 dark:text-gray-300`}
-                        fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-                      </svg>
-                    </button>
-                    {openIndex === index && (
-                      <div className="pb-4 pt-2 text-gray-600 dark:text-gray-300">
-                        <RenderAnswerWithLinks text={faq.answer} />
-                      </div>
-                    )}
+                Object.entries(groupedFaqs).map(([cat, catFaqs]) => (
+                  <div key={cat}>
+                    <h3 className="text-lg font-bold text-[#8B0000] mb-2">{cat}</h3>
+                    <div className="space-y-4">
+                      {catFaqs.map((faq, index) => {
+                        const globalIndex = faqs.findIndex(f => f.id === faq.id);
+                        return (
+                          <div key={faq.id} className="border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                            <button
+                              onClick={() => toggleAccordion(globalIndex)}
+                              className="flex justify-between items-center w-full py-4 text-left font-medium text-gray-700 dark:text-gray-100 hover:text-[#8B0000] focus:outline-none"
+                            >
+                              <span>{faq.question}</span>
+                              <svg 
+                                className={`w-5 h-5 transform transition-transform ${openIndex === globalIndex ? 'rotate-180' : ''} text-gray-500 dark:text-gray-300`}
+                                fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                              </svg>
+                            </button>
+                            {openIndex === globalIndex && (
+                              <div className="pb-4 pt-2 text-gray-600 dark:text-gray-300">
+                                <RenderAnswerWithLinks text={faq.answer} />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 ))
               )}
