@@ -57,6 +57,44 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const supabase = createClientComponentClient();
+  const [userMessages, setUserMessages] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const fetchAndCategorize = async () => {
+      const { data, error } = await supabase.from('user_messages').select('content');
+      if (!error && data) {
+        const messages = data.map((msg: any) => msg.content);
+        setUserMessages(messages);
+
+        if (messages.length > 0) {
+          const batchSize = 10;
+          let allCategories: string[] = [];
+          for (let i = 0; i < messages.length; i += batchSize) {
+            const batch = messages.slice(i, i + batchSize);
+            const response = await fetch('/api/categorize', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ messages: batch }),
+            });
+            const result = await response.json();
+            const batchCategories = result.categories || [];
+            allCategories = allCategories.concat(batchCategories);
+          }
+          setCategories(allCategories);
+
+          // Count categories
+          const counts: Record<string, number> = {};
+          allCategories.forEach(cat => {
+            counts[cat] = (counts[cat] || 0) + 1;
+          });
+          setCategoryCounts(counts);
+        }
+      }
+    };
+    fetchAndCategorize();
+  }, [supabase]);
 
   useEffect(() => {
     const fetchAnalyticsData = async () => {
@@ -391,6 +429,28 @@ export default function AnalyticsPage() {
                 <span className="text-gray-600">Recent Activity (30d)</span>
                 <span className="text-xl font-semibold text-[#6B0000]">{analyticsData?.activityStats.recentActivity}</span>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200 mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">User Chat Insights</h2>
+          <div className="flex flex-col md:flex-row md:space-x-8">
+            <div className="mb-4 md:mb-0 md:w-1/4 flex-shrink-0">
+              <div className="text-gray-600">Total User Messages</div>
+              <div className="text-2xl font-bold text-[#6B0000]">{userMessages.length}</div>
+            </div>
+            <div className="md:w-3/4 flex-grow">
+              <div className="text-gray-600 mb-1">Frequently Noted Topics</div>
+              <ul className="list-disc pl-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1">
+                {Object.entries(categoryCounts)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([cat, count]) => (
+                    <li key={cat} className="text-[#6B0000] font-medium">
+                      {cat} <span className="text-gray-500 font-normal">({count})</span>
+                    </li>
+                  ))}
+              </ul>
             </div>
           </div>
         </div>

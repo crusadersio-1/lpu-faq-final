@@ -231,6 +231,12 @@ export default function Chat() {
     };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
+    await supabase.from('user_messages').insert([
+      {
+        content,
+        created_at: new Date().toISOString()
+      }
+    ]);
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',

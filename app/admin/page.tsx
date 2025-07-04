@@ -679,26 +679,35 @@ export default function AdminDashboard() {
     ],
   };
 
+  const categoryColors = [
+    '#8B5CF6', // Purple
+    '#EC4899', // Pink
+    '#3B82F6', // Blue
+    '#10B981', // Green
+    '#F59E0B', // Yellow
+    '#F87171', // Red
+    '#34D399', // Emerald
+    '#FBBF24', // Amber
+    '#60A5FA', // Light Blue
+    '#A78BFA', // Violet
+    '#F472B6', // Rose
+    '#6EE7B7', // Teal
+    '#FDE68A', // Light Yellow
+    '#818CF8', // Indigo
+    '#FCA5A5', // Light Red
+  ];
+
+  const faqCategoryLabels = Object.keys(summaryData.faqStats.byCategory);
+  const faqCategoryData = Object.values(summaryData.faqStats.byCategory);
+
   const faqCategoryChartData = {
-    labels: Object.keys(summaryData.faqStats.byCategory),
+    labels: faqCategoryLabels,
     datasets: [
       {
         label: 'FAQs by Category',
-        data: Object.values(summaryData.faqStats.byCategory),
-        backgroundColor: [
-          '#8B5CF6', // Purple
-          '#EC4899', // Pink
-          '#3B82F6', // Blue
-          '#10B981', // Green
-          '#F59E0B', // Yellow
-        ],
-        borderColor: [
-          '#7C3AED',
-          '#DB2777',
-          '#2563EB',
-          '#059669',
-          '#D97706',
-        ],
+        data: faqCategoryData,
+        backgroundColor: faqCategoryLabels.map((_, i) => categoryColors[i % categoryColors.length]),
+        borderColor: faqCategoryLabels.map((_, i) => categoryColors[i % categoryColors.length]),
         borderWidth: 2,
         borderRadius: 4,
       },
@@ -733,6 +742,57 @@ export default function AdminDashboard() {
             return `${context.label}: ${context.raw}`;
           }
         }
+      },
+    },
+  };
+
+  const faqCategoryChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    indexAxis: 'y', // Horizontal bars
+    plugins: {
+      legend: {
+        display: false,
+      },
+      tooltip: {
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        titleColor: '#1F2937',
+        bodyColor: '#4B5563',
+        borderColor: '#E5E7EB',
+        borderWidth: 1,
+        padding: 12,
+        boxPadding: 6,
+        usePointStyle: true,
+        callbacks: {
+          label: function(context: any) {
+            return `${context.label}: ${context.raw}`;
+          }
+        }
+      },
+    },
+    scales: {
+      x: {
+        beginAtZero: true,
+        ticks: {
+          precision: 0,
+        },
+        grid: {
+          display: true,
+          drawBorder: false,
+        },
+      },
+      y: {
+        ticks: {
+          callback: function(value: any, index: number, values: any) {
+            const label = this.getLabelForValue(value);
+            return label.length > 20 ? label.slice(0, 20) + '…' : label;
+          },
+          padding: 10,
+        },
+        grid: {
+          display: false,
+          drawBorder: false,
+        },
       },
     },
   };
@@ -873,7 +933,7 @@ export default function AdminDashboard() {
                   <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-100">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">FAQs by Category</h3>
                     <div className="h-64">
-                      <Bar data={faqCategoryChartData} options={chartOptions} />
+                      <Bar data={faqCategoryChartData} options={faqCategoryChartOptions} />
                     </div>
                   </div>
                 </div>
