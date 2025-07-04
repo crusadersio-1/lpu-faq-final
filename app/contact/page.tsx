@@ -82,9 +82,23 @@ export default function ContactPage() {
       <main className="flex-grow container mx-auto px-4 py-12">
         <h1 className="text-3xl font-bold text-center text-[#8B0000] mb-2">Contact Us</h1>
         <p className="text-center text-gray-600 dark:text-gray-300 mb-12">Have questions? Reach out to our support team.</p>
-
-        <div className="flex justify-center max-w-6xl mx-auto">
-          <div className="max-w-md w-full">
+        <div className="flex flex-col md:flex-row justify-center items-stretch gap-8 w-full">
+          <div className="md:w-3/4 w-full flex items-center">
+            <div className="w-full h-[32rem] rounded-lg overflow-hidden shadow border border-gray-200 dark:border-gray-700">
+              <iframe
+                src="https://www.google.com/maps?q=General+Luna+St,+corner+Muralla+St,+Intramuros,+Manila,+1002+Metro+Manila,+Philippines&output=embed"
+                width="100%"
+                height="100%"
+                style={{ border: 0, minHeight: 512 }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="LPU Manila Map"
+              ></iframe>
+            </div>
+          </div>
+          {/* Contact Info */}
+          <div className="md:w-1/4 w-full">
             <h2 className="text-2xl font-semibold text-[#8B0000] mb-6">Contact Information</h2>
             <div className="space-y-6 bg-white dark:bg-gray-950 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
               {/* Phone */}
@@ -98,8 +112,8 @@ export default function ContactPage() {
               </div>
               {/* Email */}
               <div className="flex items-start space-x-4">
-                 <div className="pt-1 text-[#8B0000]"><EmailIcon /></div>
-                 <div>
+                <div className="pt-1 text-[#8B0000]"><EmailIcon /></div>
+                <div>
                   <h3 className="font-semibold text-gray-800 dark:text-gray-100">Email</h3>
                   <p className="text-gray-600 dark:text-gray-300">General Inquiries: info@lpu.edu.ph</p>
                   <p className="text-gray-600 dark:text-gray-300">Technical Support: support@lpu.edu.ph</p>
@@ -107,16 +121,16 @@ export default function ContactPage() {
               </div>
               {/* Address */}
               <div className="flex items-start space-x-4">
-                 <div className="pt-1 text-[#8B0000]"><AddressIcon /></div>
-                 <div>
+                <div className="pt-1 text-[#8B0000]"><AddressIcon /></div>
+                <div>
                   <h3 className="font-semibold text-gray-800 dark:text-gray-100">Address</h3>
                   <p className="text-gray-600 dark:text-gray-300">General Luna St, corner Muralla St, Intramuros, Manila, 1002 Metro Manila, Philippines</p>
                 </div>
               </div>
               {/* Hours */}
               <div className="flex items-start space-x-4">
-                 <div className="pt-1 text-[#8B0000]"><ClockIcon /></div>
-                 <div>
+                <div className="pt-1 text-[#8B0000]"><ClockIcon /></div>
+                <div>
                   <h3 className="font-semibold text-gray-800 dark:text-gray-100">Hours of Operation</h3>
                   <p className="text-gray-600 dark:text-gray-300">Monday - Friday: 8:00 AM - 5:00 PM</p>
                   <p className="text-gray-600 dark:text-gray-300">Saturday: 9:00 AM - 1:00 PM</p>
