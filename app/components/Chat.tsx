@@ -231,12 +231,6 @@ export default function Chat() {
     };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
-    await supabase.from('user_messages').insert([
-      {
-        content,
-        created_at: new Date().toISOString()
-      }
-    ]);
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -300,14 +294,6 @@ export default function Chat() {
           </div>
           <h1 className="text-xl font-semibold">LPU FAQ Assistant</h1>
         </div>
-        <button
-          onClick={handleNewChat}
-          className="ml-4 px-3 py-1 rounded bg-white text-[#6B0000] hover:bg-gray-100 dark:bg-gray-900 dark:hover:bg-gray-800 border border-[#6B0000] text-sm"
-          title="Start a new chat"
-        >
-          <span>+ </span>
-          <span>New Chat</span>
-        </button>
       </div>
 
       {/* Messages Container */}
@@ -570,7 +556,15 @@ export default function Chat() {
       </div>
 
       {/* Input Area */}
-      <div className="border-t p-4 bg-white dark:bg-gray-950 dark:border-gray-800">
+      <div className="relative border-t p-4 bg-white dark:bg-gray-950 dark:border-gray-800">
+        <button
+          onClick={handleNewChat}
+          className="absolute -top-12 left-1/2 transform -translate-x-1/2 z-30 px-4 py-2 rounded-full bg-white text-[#6B0000] hover:bg-gray-100 dark:bg-gray-900 dark:hover:bg-gray-800 border border-[#6B0000] text-gray-100 shadow-lg transition-all"
+          title="Start a new chat"
+        >
+          <span className="mr-1">+ </span>
+          <span>New Chat</span>
+        </button>
         <div className="flex items-center space-x-2">
           <input
             type="text"

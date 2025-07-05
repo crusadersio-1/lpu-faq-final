@@ -19,6 +19,9 @@ import {
   LineElement,
 } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
+import * as XLSX from 'xlsx';
+import pptxParser from 'pptx-parser';
+import Tesseract from 'tesseract.js';
 
 // Register ChartJS components
 ChartJS.register(
@@ -128,35 +131,29 @@ export default function AdminDashboard() {
     }
   };
 
-  const handlePDFUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       setUploading(true);
       setUploadError(null);
       setUploadSuccess(false);
-      
+
       const file = e.target.files?.[0];
       if (!file) return;
-      
-      // Validate file size (10MB max)
+
       if (file.size > 10 * 1024 * 1024) {
         setUploadError("File is too large. Maximum size is 10MB.");
         return;
       }
-      
-      // Validate file type
-      if (!file.name.endsWith('.pdf')) {
-        setUploadError("Only PDF files are allowed.");
+
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      if (!['pdf', 'pptx', 'xlsx', 'jpg', 'jpeg', 'png'].includes(ext || '')) {
+        setUploadError("Only PDF, PPTX, XLSX, JPG, and PNG files are allowed.");
         return;
       }
-      
+
       setPdfFile(file);
       console.log(`Uploading file: ${file.name}`);
 
-      // Create form data for the file
-      const formData = new FormData();
-      formData.append('file', file);
-
-      // Upload the file first
       const { data: storageData, error: storageError } = await supabase
         .storage
         .from('pdfs')
@@ -166,82 +163,73 @@ export default function AdminDashboard() {
         throw new Error(`Failed to upload file: ${storageError.message}`);
       }
 
-      // Get the public URL
       const { data: { publicUrl } } = supabase
         .storage
         .from('pdfs')
         .getPublicUrl(storageData.path);
 
-      // Extract text from the PDF
-      const arrayBuffer = await file.arrayBuffer();
-      const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
-      const pdf = await loadingTask.promise;
       let fullText = '';
-
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items
-          .map((item: any) => item.str)
-          .join(' ');
-        fullText += pageText + '\n';
+      if (ext === 'pdf') {
+        const arrayBuffer = await file.arrayBuffer();
+        const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+        const pdf = await loadingTask.promise;
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items.map((item: any) => item.str).join(' ');
+          fullText += pageText + '\n';
+        }
+      } else if (ext === 'pptx') {
+        const arrayBuffer = await file.arrayBuffer();
+        const pptx = await pptxParser(arrayBuffer);
+        fullText = pptx.slides.map((slide: any) => slide.text).join('\n');
+      } else if (ext === 'xlsx') {
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        workbook.SheetNames.forEach(sheetName => {
+          const sheet = workbook.Sheets[sheetName];
+          fullText += XLSX.utils.sheet_to_csv(sheet) + '\n';
+        });
+      } else if (['jpg', 'jpeg', 'png'].includes(ext)) {
+        const result = await Tesseract.recognize(file, 'eng');
+        fullText = result.data.text;
       }
 
-      // Store the PDF metadata and content in Supabase
       const insertData = {
         title: file.name,
         url: publicUrl,
         content: fullText.trim(),
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        file_type: ext,
+        extraction_successful: true
       };
 
-      // Try to insert with extraction_successful first
-      let { data: pdfData, error: insertError } = await supabase
+      const { data: fileData, error: insertError } = await supabase
         .from('pdf_documents')
-        .insert({
-          ...insertData,
-          extraction_successful: true
-        })
+        .insert(insertData)
         .select()
         .single();
 
-      // If there's an error about the column not existing, try without it
-      if (insertError && insertError.message.includes('extraction_successful')) {
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('pdf_documents')
-          .insert(insertData)
-          .select()
-          .single();
+      if (insertError) throw new Error(`Failed to store file metadata: ${insertError.message}`);
 
-        if (fallbackError) {
-          throw new Error(`Failed to store PDF metadata: ${fallbackError.message}`);
-        }
-        pdfData = fallbackData;
-      } else if (insertError) {
-        throw new Error(`Failed to store PDF metadata: ${insertError.message}`);
-      }
-      
       setUploadSuccess(true);
-      alert('PDF uploaded and processed successfully!');
+      alert('File uploaded and processed successfully!');
       setPdfFile(null);
-      if (e.target) {
-        e.target.value = '';
-      }
+      if (e.target) e.target.value = '';
 
-      // Refresh the PDFs list
       const { data: updatedPdfs, error: fetchError } = await supabase
         .from('pdf_documents')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (fetchError) {
-        console.error('Error fetching updated PDFs:', fetchError);
+        console.error('Error fetching updated files:', fetchError);
       } else {
         setPdfs(updatedPdfs || []);
       }
     } catch (error) {
-      console.error('Error uploading PDF:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to upload PDF. Please try again.';
+      console.error('Error uploading file:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to upload file. Please try again.';
       setUploadError(errorMessage);
     } finally {
       setUploading(false);
@@ -878,7 +866,7 @@ export default function AdminDashboard() {
                 {/* Quick Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                   <div className="bg-gradient-to-br from-[#6B0000] to-[#8B0000] rounded-lg p-6 text-white">
-                    <h3 className="text-lg font-semibold mb-2">Total PDFs</h3>
+                    <h3 className="text-lg font-semibold mb-2">Total Files</h3>
                     <p className="text-3xl font-bold">{summaryData.pdfStats.total}</p>
                     <p className="text-sm opacity-80 mt-2">
                       {summaryData.pdfStats.processed} processed
@@ -906,7 +894,7 @@ export default function AdminDashboard() {
                         : 0}%
                     </p>
                     <p className="text-sm opacity-80 mt-2">
-                      PDFs successfully processed
+                      Files successfully processed
                     </p>
                   </div>
                 </div>
@@ -915,7 +903,7 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   {/* PDF Status Chart */}
                   <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-100">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">PDF Processing Status</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">File Processing Status</h3>
                     <div className="h-64">
                       <Doughnut data={pdfStatusChartData} options={chartOptions} />
                     </div>
@@ -945,18 +933,18 @@ export default function AdminDashboard() {
               <div className="p-8">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-bold text-gray-900">
-                  PDF Management
+                  File Management
                 </h2>
                   <div className="flex items-center space-x-4">
                     <span className="text-sm text-gray-500">
-                      {pdfs.length} PDFs in total
+                      {pdfs.length} Files in total
                     </span>
                     <button
                       onClick={() => {
                         const input = document.createElement('input');
                         input.type = 'file';
-                        input.accept = '.pdf';
-                        input.onchange = (e) => handlePDFUpload(e as any);
+                        input.accept = '.pdf,.pptx,.xlsx,.jpg,.jpeg,.png';
+                        input.onchange = (e) => handleFileUpload(e as any);
                         input.click();
                       }}
                       className="px-4 py-2 bg-[#6B0000] text-white rounded-lg hover:bg-[#8B0000] transition-colors duration-200 flex items-center space-x-2"
@@ -964,7 +952,7 @@ export default function AdminDashboard() {
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
                         </svg>
-                      <span>Upload PDF</span>
+                      <span>Upload File</span>
                     </button>
                         </div>
                       </div>
@@ -974,7 +962,7 @@ export default function AdminDashboard() {
                   <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#6B0000]"></div>
-                      <p className="text-blue-700">Uploading PDF...</p>
+                      <p className="text-blue-700">Uploading File...</p>
                     </div>
                   </div>
                     )}
@@ -994,7 +982,7 @@ export default function AdminDashboard() {
                       <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                       </svg>
-                      <p className="text-green-700">PDF uploaded and processed successfully!</p>
+                      <p className="text-green-700">File uploaded and processed successfully!</p>
                   </div>
                   </div>
                 )}
@@ -1052,7 +1040,7 @@ export default function AdminDashboard() {
                               <button
                                 onClick={() => window.open(pdf.url, '_blank')}
                                 className="text-[#6B0000] hover:text-[#8B0000] transition-colors duration-200"
-                                title="View PDF"
+                                title="View File"
                               >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
