@@ -48,7 +48,11 @@ async function analyzePDFContent(content: string, question: string, sources: str
     throw new Error('Google AI API key is not configured');
   }
 
-  const prompt = `You are an AI assistant specifically for Lyceum of the Philippines University (LPU). Please answer the following question based on the provided document content. Always refer to the institution as "Lyceum of the Philippines University" or "LPU". If the information comes from the Student Handbook, start your response with "According to the LPU Student Handbook". For all other documents, provide the answer directly without mentioning the source, but always ensure you're referring to LPU.
+  const prompt = `You are an AI assistant specifically for Lyceum of the Philippines University Manila campus (LPU Manila). 
+Please answer the following question based on the provided document content. 
+Always refer to the institution as "Lyceum of the Philippines University Manila" or "LPU Manila" (not other LPU branches).
+If the information comes from the Student Handbook, start your response with "According to the LPU Manila Student Handbook".
+For all other documents, provide the answer directly without mentioning the source, but always ensure you're referring to LPU Manila.
 
 Use markdown formatting in your response:
 - Use **bold** for important terms or key points
@@ -63,7 +67,9 @@ Question: ${question}
 Document Content (from: ${sources}):
 ${content}
 
-Please provide a clear and concise answer based on the document content. Always specify that you're referring to LPU. If the information is not found in the document, say so, but try to infer or synthesize an answer if possible based on related content.`;
+Please provide a clear and concise answer based on the document content. Always specify that you're referring to LPU Manila. 
+If the information is not found in the document, say so, but try to infer or synthesize an answer if possible based on related content. 
+Only suggest a website or page if the answer cannot be fully provided, or if the user needs more details.`;
 
   const apiResponse = await fetch(`${GEMINI_API_ENDPOINT}?key=${process.env.GOOGLE_AI_API_KEY}`, {
     method: 'POST',
@@ -171,7 +177,7 @@ export async function POST(request: Request) {
     const topicKeywords = ['tuition', 'payment', 'scholarship', 'handbook', 'discipline', 'programs'];
     const lowerMsg = message.toLowerCase();
     const foundTopic = topicKeywords.find(kw => lowerMsg.includes(kw));
-    const siteLink = foundTopic ? getRelevantSiteLink(foundTopic) : 'https://lpumanila.edu.ph/';
+    const siteLink = foundTopic ? getRelevantSiteLink(foundTopic) : 'https://manila.lpu.edu.ph/';
 
     if (pdfMatches && pdfMatches.length > 0) {
       // Combine content from top matches for broader context
@@ -184,11 +190,10 @@ export async function POST(request: Request) {
 
       // If Gemini says "not found" or similar, fallback to general Gemini answer
       if (/not found|does not mention|could not find|not available|no information/i.test(analysis)) {
-        const fallbackPrompt = `You are a helpful assistant for Lyceum of the Philippines University (LPU). Answer the following question for a student as best as you can, even if the information is not directly available in the documents. Always refer to the institution as "Lyceum of the Philippines University" or "LPU".
-
-Keep your answer concise and relevant. If the user asks about a specific topic (e.g., tuition), focus only on that topic. If appropriate, recommend the user to visit the relevant page: ${siteLink}
-
-If the question is too complex, sensitive, or not answerable by the chatbot, recommend the user to message the official Facebook page for human assistance: https://www.facebook.com/profile.php?id=100080128906615
+        const fallbackPrompt = `You are a helpful assistant specifically for Lyceum of the Philippines University Manila campus (LPU Manila). 
+Always refer to the institution as "Lyceum of the Philippines University Manila" or "LPU Manila" (not other LPU branches).
+Answer the following question as specifically and completely as possible using the information you have.
+Only suggest a website or page if the answer cannot be fully provided, or if the user needs more details.
 
 Use markdown formatting in your response:
 - Use **bold** for important terms or key points
@@ -240,11 +245,10 @@ Question: ${message}`;
     }
 
     // If no PDF matches, use Gemini for general response
-    const prompt = `You are a helpful assistant specifically for Lyceum of the Philippines University (LPU) students. Please answer the following question, always referring to the institution as "Lyceum of the Philippines University" or "LPU".
-
-Keep your answer concise and relevant. If the user asks about a specific topic (e.g., tuition), focus only on that topic. If appropriate, recommend the user to visit the relevant page: ${siteLink}
-
-If the question is too complex, sensitive, or not answerable by the chatbot, recommend the user to message the official Facebook page for human assistance: https://www.facebook.com/profile.php?id=100080128906615
+    const prompt = `You are a helpful assistant specifically for Lyceum of the Philippines University Manila campus (LPU Manila). 
+Always refer to the institution as "Lyceum of the Philippines University Manila" or "LPU Manila" (not other LPU branches).
+Answer the following question as specifically and completely as possible using the information you have.
+Only suggest a website or page if the answer cannot be fully provided, or if the user needs more details.
 
 Use markdown formatting in your response:
 - Use **bold** for important terms or key points

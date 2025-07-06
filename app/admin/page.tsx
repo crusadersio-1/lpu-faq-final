@@ -20,7 +20,6 @@ import {
 } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import * as XLSX from 'xlsx';
-import pptxParser from 'pptx-parser';
 import Tesseract from 'tesseract.js';
 
 // Register ChartJS components
@@ -100,6 +99,21 @@ export default function AdminDashboard() {
     faqStats: { total: 0, byCategory: {} },
     ticketStats: { total: 0, open: 0, byPriority: {} }
   });
+  const [pdfSearch, setPdfSearch] = useState('');
+  const [pdfPage, setPdfPage] = useState(1);
+  const filteredPdfs = pdfs.filter(pdf =>
+    pdf.title.toLowerCase().includes(pdfSearch.toLowerCase())
+  );
+  const pdfsPerPage = 10;
+  const totalPdfPages = Math.ceil(filteredPdfs.length / pdfsPerPage);
+  const paginatedPdfs = filteredPdfs.slice(
+    (pdfPage - 1) * pdfsPerPage,
+    pdfPage * pdfsPerPage
+  );
+
+  useEffect(() => {
+    setPdfPage(1);
+  }, [pdfSearch]);
 
   // Initialize PDF.js worker
   useEffect(() => {
@@ -146,8 +160,8 @@ export default function AdminDashboard() {
       }
 
       const ext = file.name.split('.').pop()?.toLowerCase();
-      if (!['pdf', 'pptx', 'xlsx', 'jpg', 'jpeg', 'png'].includes(ext || '')) {
-        setUploadError("Only PDF, PPTX, XLSX, JPG, and PNG files are allowed.");
+      if (!['pdf', 'xlsx', 'jpg', 'jpeg', 'png'].includes(ext || '')) {
+        setUploadError("Only PDF, XLSX, JPG, and PNG files are allowed.");
         return;
       }
 
@@ -179,10 +193,6 @@ export default function AdminDashboard() {
           const pageText = textContent.items.map((item: any) => item.str).join(' ');
           fullText += pageText + '\n';
         }
-      } else if (ext === 'pptx') {
-        const arrayBuffer = await file.arrayBuffer();
-        const pptx = await pptxParser(arrayBuffer);
-        fullText = pptx.slides.map((slide: any) => slide.text).join('\n');
       } else if (ext === 'xlsx') {
         const arrayBuffer = await file.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
@@ -933,8 +943,8 @@ export default function AdminDashboard() {
               <div className="p-8">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-bold text-gray-900">
-                  File Management
-                </h2>
+                    Document Management
+                  </h2>
                   <div className="flex items-center space-x-4">
                     <span className="text-sm text-gray-500">
                       {pdfs.length} Files in total
@@ -943,7 +953,7 @@ export default function AdminDashboard() {
                       onClick={() => {
                         const input = document.createElement('input');
                         input.type = 'file';
-                        input.accept = '.pdf,.pptx,.xlsx,.jpg,.jpeg,.png';
+                        input.accept = '.pdf,.xlsx,.jpg,.jpeg,.png';
                         input.onchange = (e) => handleFileUpload(e as any);
                         input.click();
                       }}
@@ -951,11 +961,21 @@ export default function AdminDashboard() {
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                        </svg>
+                      </svg>
                       <span>Upload File</span>
                     </button>
-                        </div>
-                      </div>
+                  </div>
+                </div>
+
+                <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:space-x-4">
+                  <input
+                    type="text"
+                    placeholder="Search document titles..."
+                    value={pdfSearch}
+                    onChange={e => setPdfSearch(e.target.value)}
+                    className="w-full sm:w-72 rounded-md border-gray-300 shadow-sm focus:ring-[#8B0000] focus:border-[#8B0000] sm:text-sm mb-2 sm:mb-0"
+                  />
+                </div>
 
                 {/* Upload Status Messages */}
                     {uploading && (
@@ -989,10 +1009,10 @@ export default function AdminDashboard() {
                   
                 {/* PDF List */}
                 <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                    <div className="overflow-x-auto">
+                  <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
-                          <tr>
+                        <tr>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Title
                           </th>
@@ -1008,7 +1028,7 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {pdfs.map((pdf) => (
+                        {paginatedPdfs.map((pdf) => (
                           <tr key={pdf.id} className="hover:bg-gray-50 transition-colors duration-150">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
@@ -1082,10 +1102,41 @@ export default function AdminDashboard() {
                             </td>
                           </tr>
                         ))}
+                        {paginatedPdfs.length === 0 && (
+                          <tr>
+                            <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
+                              No documents found.
+                            </td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
+                </div>
+
+                {filteredPdfs.length > 10 && (
+                  <div className="flex justify-end mt-4">
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => setPdfPage(p => Math.max(1, p - 1))}
+                        disabled={pdfPage === 1}
+                        className="px-2 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50"
+                      >
+                        Prev
+                      </button>
+                      <span className="text-sm text-gray-700">
+                        Page {pdfPage} of {totalPdfPages}
+                      </span>
+                      <button
+                        onClick={() => setPdfPage(p => Math.min(totalPdfPages, p + 1))}
+                        disabled={pdfPage === totalPdfPages}
+                        className="px-2 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50"
+                      >
+                        Next
+                      </button>
+                    </div>
                   </div>
+                )}
 
                 {/* PDF Content Modal */}
                   {selectedPdfContent && (
@@ -1150,19 +1201,21 @@ export default function AdminDashboard() {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700">Category</label>
-                        <input
-                          type="text"
+                        <select
                           value={category}
                           onChange={(e) => setCategory(e.target.value)}
                           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-[#8B0000] focus:border-[#8B0000] sm:text-sm"
                           required
-                          list="categories"
-                        />
-                        <datalist id="categories">
-                          {categories.map((cat, index) => (
-                            <option key={index} value={cat} />
-                          ))}
-                        </datalist>
+                        >
+                          <option value="">Select a category</option>
+                          <option value="Admissions">Admissions</option>
+                          <option value="Academics & Programs">Academics & Programs</option>
+                          <option value="College Departments">College Departments</option>
+                          <option value="Student Life">Student Life</option>
+                          <option value="Technology & Resources">Technology & Resources</option>
+                          <option value="University Policies">University Policies</option>
+                          <option value="Alumni">Alumni</option>
+                        </select>
                       </div>
                       <button
                         type="submit"

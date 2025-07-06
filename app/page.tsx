@@ -137,18 +137,20 @@ export default function Home() {
       </div>
 
       {/* Chat Section */}
-      <div id="chat-section" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 scroll-mt-16">
-        <div className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-4 sm:p-6">
-          <div className="text-center mb-6 sm:mb-8">
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
-              Start Your Conversation
-            </h2>
-            <p className="mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-200">
-              Ask me anything about LPU!
-            </p>
-          </div>
-          <div className="h-[400px] sm:h-[500px] md:h-[600px]">
-            <Chat />
+      <div id="chat-section" className="flex justify-center py-8 scroll-mt-16">
+        <div className="w-full max-w-7xl flex justify-center">
+          <div className="w-full sm:w-5/6 md:w-4/5 lg:w-3/5 xl:w-3/4 bg-white dark:bg-gray-950 rounded-lg shadow-lg p-4 sm:px-10 lg:px-16 py-8">
+            <div className="text-center mb-6 sm:mb-8">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
+                Start Your Conversation
+              </h2>
+              <p className="mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-200">
+                Ask me anything about LPU!
+              </p>
+            </div>
+            <div className="h-[400px] sm:h-[500px] md:h-[600px]">
+              <Chat />
+            </div>
           </div>
         </div>
       </div>

@@ -17,14 +17,22 @@ type Ticket = {
   priority: string;
   department: string;
   created_at: string;
-  status?: string; // DB value: 'open' | 'closed'
+  status?: string; // DB value: 'open' | 'in progress' | 'resolved'
 };
 
-const dbToUiStatus = (dbStatus: string | undefined): 'In progress' | 'Resolved' =>
-  dbStatus === 'closed' ? 'Resolved' : 'In progress';
+// Map DB status to UI status
+const dbToUiStatus = (dbStatus: string | undefined): 'Open' | 'In progress' | 'Resolved' => {
+  if (dbStatus === 'resolved') return 'Resolved';
+  if (dbStatus === 'in progress') return 'In progress';
+  return 'Open';
+};
 
-const uiToDbStatus = (uiStatus: 'In progress' | 'Resolved') =>
-  uiStatus === 'In progress' ? 'open' : 'closed';
+// Map UI status to DB status
+const uiToDbStatus = (uiStatus: 'Open' | 'In progress' | 'Resolved') => {
+  if (uiStatus === 'Resolved') return 'resolved';
+  if (uiStatus === 'In progress') return 'in progress';
+  return 'open';
+};
 
 export default function TicketsPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -132,14 +140,19 @@ export default function TicketsPage() {
     }
   };
 
+  // Status color: Open = blue, In progress = yellow, Resolved = green
   const getStatusColor = (status: string) => {
     if (status === 'Resolved') {
       return 'bg-green-100 text-green-800 border border-green-200';
     }
+    if (status === 'In progress') {
+      return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
+    }
+    // Open
     return 'bg-blue-100 text-blue-800 border border-blue-200';
   };
 
-  const handleStatusChange = async (id: string, newStatus: 'In progress' | 'Resolved') => {
+  const handleStatusChange = async (id: string, newStatus: 'Open' | 'In progress' | 'Resolved') => {
     try {
       const dbStatus = uiToDbStatus(newStatus);
       const { error } = await supabase
@@ -434,16 +447,17 @@ export default function TicketsPage() {
                     {/* Status column */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <select
-                        value={ticket.status || 'In progress'}
+                        value={ticket.status || 'Open'}
                         onChange={(e) =>
                           handleStatusChange(
                             ticket.id,
-                            e.target.value as 'In progress' | 'Resolved'
+                            e.target.value as 'Open' | 'In progress' | 'Resolved'
                           )
                         }
-                        className={`px-3 py-1 rounded-full text-xs font-semibold border focus:outline-none ${getStatusColor(ticket.status || 'In progress')}`}
+                        className={`px-3 py-1 rounded-full text-xs font-semibold border focus:outline-none ${getStatusColor(ticket.status || 'Open')}`}
                         style={{ minWidth: 110 }}
                       >
+                        <option value="Open">Open</option>
                         <option value="In progress">In progress</option>
                         <option value="Resolved">Resolved</option>
                       </select>
