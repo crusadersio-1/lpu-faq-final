@@ -48,11 +48,23 @@ async function analyzePDFContent(content: string, question: string, sources: str
     throw new Error('Google AI API key is not configured');
   }
 
-  const prompt = `You are an AI assistant specifically for Lyceum of the Philippines University Manila campus (LPU Manila). 
-Please answer the following question based on the provided document content. 
+  // Prompt instructs Gemini to answer naturally, avoid "according to the document/pdf", and refer to LPU Manila website if needed
+  const prompt = `You are an AI assistant for Lyceum of the Philippines University Manila campus (LPU Manila).
+Answer the following question as naturally and conversationally as possible, as if you are a knowledgeable staff member.
+Do NOT start your answer with phrases like "According to the document", "The document mentions", "Based on the PDF", or similar.
+If you use information from the Student Handbook, you may mention "LPU Manila Student Handbook" only if it adds value, but do not start your answer with it.
+If the answer is incomplete or not found in the documents, intelligently refer to or summarize information from the official LPU Manila sites: 
+https://manila.lpu.edu.ph/ 
+https://manila.lpu.edu.ph/about-lpu/
+https://manila.lpu.edu.ph/admissions/
+https://manila.lpu.edu.ph/about-lpu/departments/
+https://manila.lpu.edu.ph/campus-life/
+https://manila.lpu.edu.ph/students/
+https://manila.lpu.edu.ph/contact-info/
+https://manila.lpu.edu.ph/about-lpu/lpu-alumni/
+https://aims.lpu.edu.ph/lpumnl/students/
+https://lmsmanila.lpu.edu.ph/
 Always refer to the institution as "Lyceum of the Philippines University Manila" or "LPU Manila" (not other LPU branches).
-If the information comes from the Student Handbook, start your response with "According to the LPU Manila Student Handbook".
-For all other documents, provide the answer directly without mentioning the source, but always ensure you're referring to LPU Manila.
 
 Use markdown formatting in your response:
 - Use **bold** for important terms or key points
@@ -67,9 +79,7 @@ Question: ${question}
 Document Content (from: ${sources}):
 ${content}
 
-Please provide a clear and concise answer based on the document content. Always specify that you're referring to LPU Manila. 
-If the information is not found in the document, say so, but try to infer or synthesize an answer if possible based on related content. 
-Only suggest a website or page if the answer cannot be fully provided, or if the user needs more details.`;
+If the information is not found in the document, say so in a friendly way and refer to the official LPU Manila website for more details. Do not use ellipses or cut off sentences. Always end your answer with a complete sentence.`;
 
   const apiResponse = await fetch(`${GEMINI_API_ENDPOINT}?key=${process.env.GOOGLE_AI_API_KEY}`, {
     method: 'POST',
@@ -86,7 +96,7 @@ Only suggest a website or page if the answer cannot be fully provided, or if the
         temperature: 0.3,
         topK: 40,
         topP: 0.95,
-        maxOutputTokens: 1024,
+        maxOutputTokens: 2048,
       },
     }),
   });
@@ -98,27 +108,36 @@ Only suggest a website or page if the answer cannot be fully provided, or if the
   const data = await apiResponse.json();
   let answer = data.candidates?.[0]?.content?.parts?.[0]?.text || 'I could not find a clear answer in the LPU documents.';
 
-  // Only keep "According to the LPU Student Handbook" if it's from the handbook
-  if (!sources.includes('Student Handbook 2024')) {
-    answer = answer.replace(/^(According to|Based on|From) the (document|Student Handbook)[.,:]\s*/i, '');
-  }
-
   return answer;
 }
 
 function getRelevantSiteLink(topic: string) {
   const map: Record<string, string> = {
-    tuition: 'https://lpumanila.edu.ph/admissions/tuition-fees/',
-    payment: 'https://lpumanila.edu.ph/admissions/payment-options/',
-    scholarship: 'https://lpumanila.edu.ph/admissions/scholarships/',
-    handbook: 'https://lpumanila.edu.ph/student-handbook/',
-    discipline: 'https://lpumanila.edu.ph/student-discipline/',
-    programs: 'https://lpumanila.edu.ph/academics/',
+    tuition: 'https://manila.lpu.edu.ph/admissions/',
+    payment: 'https://manila.lpu.edu.ph/admissions/',
+    scholarship: 'https://manila.lpu.edu.ph/admissions/',
+    admission: 'https://manila.lpu.edu.ph/admissions/',
+    program: 'https://manila.lpu.edu.ph/about-lpu/departments/',
+    course: 'https://manila.lpu.edu.ph/about-lpu/departments/',
+    department: 'https://manila.lpu.edu.ph/about-lpu/departments/',
+    handbook: 'https://manila.lpu.edu.ph/students/',
+    discipline: 'https://manila.lpu.edu.ph/students/',
+    student: 'https://manila.lpu.edu.ph/students/',
+    campus: 'https://manila.lpu.edu.ph/campus-life/',
+    aims: 'https://aims.lpu.edu.ph/lpumnl/students/',
+    lms: 'https://lmsmanila.lpu.edu.ph/',
+    contact: 'https://manila.lpu.edu.ph/contact-info/',
+    alumni: 'https://manila.lpu.edu.ph/about-lpu/lpu-alumni/',
+    about: 'https://manila.lpu.edu.ph/about-lpu/',
   };
+
   for (const key in map) {
-    if (topic.includes(key)) return map[key];
+    if (topic.includes(key)) {
+      return map[key];
+    }
   }
-  return 'https://lpumanila.edu.ph/';
+
+  return 'https://manila.lpu.edu.ph/';
 }
 
 export async function POST(request: Request) {
@@ -154,7 +173,8 @@ export async function POST(request: Request) {
     }
 
     if (faqMatches && faqMatches.length > 0) {
-      return NextResponse.json({ response: faqMatches[0].answer, source: 'FAQ Database' });
+      let answer = faqMatches[0].answer;
+      return NextResponse.json({ response: answer, source: 'FAQ Database' });
     }
 
     const { data: pdfMatches, error: pdfError } = await supabase
@@ -174,7 +194,24 @@ export async function POST(request: Request) {
       );
     }
 
-    const topicKeywords = ['tuition', 'payment', 'scholarship', 'handbook', 'discipline', 'programs'];
+    const topicKeywords = [
+      'tuition',
+      'payment',
+      'scholarship',
+      'handbook',
+      'discipline',
+      'programs',
+      'admission',
+      'department',
+      'course',
+      'student',
+      'campus',
+      'aims',
+      'lms',
+      'contact',
+      'alumni',
+      'about'
+    ];
     const lowerMsg = message.toLowerCase();
     const foundTopic = topicKeywords.find(kw => lowerMsg.includes(kw));
     const siteLink = foundTopic ? getRelevantSiteLink(foundTopic) : 'https://manila.lpu.edu.ph/';
@@ -190,10 +227,21 @@ export async function POST(request: Request) {
 
       // If Gemini says "not found" or similar, fallback to general Gemini answer
       if (/not found|does not mention|could not find|not available|no information/i.test(analysis)) {
-        const fallbackPrompt = `You are a helpful assistant specifically for Lyceum of the Philippines University Manila campus (LPU Manila). 
+        const fallbackPrompt = `You are a helpful assistant for Lyceum of the Philippines University Manila campus (LPU Manila).
+Answer the following question as naturally and conversationally as possible, as if you are a knowledgeable staff member.
+Do NOT start your answer with phrases like "According to the document", "The document mentions", "Based on the PDF", or similar.
+If the answer is incomplete or not found in the documents, intelligently refer to or summarize information from the official LPU Manila sites: 
+https://manila.lpu.edu.ph/ 
+https://manila.lpu.edu.ph/about-lpu/
+https://manila.lpu.edu.ph/admissions/
+https://manila.lpu.edu.ph/about-lpu/departments/
+https://manila.lpu.edu.ph/campus-life/
+https://manila.lpu.edu.ph/students/
+https://manila.lpu.edu.ph/contact-info/
+https://manila.lpu.edu.ph/about-lpu/lpu-alumni/
+https://aims.lpu.edu.ph/lpumnl/students/
+https://lmsmanila.lpu.edu.ph/
 Always refer to the institution as "Lyceum of the Philippines University Manila" or "LPU Manila" (not other LPU branches).
-Answer the following question as specifically and completely as possible using the information you have.
-Only suggest a website or page if the answer cannot be fully provided, or if the user needs more details.
 
 Use markdown formatting in your response:
 - Use **bold** for important terms or key points
@@ -203,18 +251,21 @@ Use markdown formatting in your response:
 - Use \`code\` for specific values or codes
 - Use > for important notes or warnings
 
-Question: ${message}`;
+Question: ${message}
+
+If the information is not found, say so in a friendly way and refer to the official LPU Manila website for more details. Do not use ellipses or cut off sentences. Always end your answer with a complete sentence.`;
 
         const fallbackResponse = await fetch(`${GEMINI_API_ENDPOINT}?key=${process.env.GOOGLE_AI_API_KEY}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{ parts: [{ text: fallbackPrompt }] }],
-            generationConfig: { temperature: 0.7, topK: 40, topP: 0.95, maxOutputTokens: 1024 },
+            generationConfig: { temperature: 0.7, topK: 40, topP: 0.95, maxOutputTokens: 2048 },
           }),
         });
         const fallbackData = await fallbackResponse.json();
         let fallbackText = fallbackData.candidates?.[0]?.content?.parts?.[0]?.text || analysis;
+
         // Add site link if not already present
         if (siteLink && !fallbackText.includes(siteLink)) {
           fallbackText += `\n\n> For more info, visit: [LPU Manila](${siteLink})`;
@@ -233,11 +284,6 @@ Question: ${message}`;
         pdfSourceLink = `\n\n> Source: [${pdfMatches[0].title}](${pdfMatches[0].url})`;
       }
 
-      // Limit answer length unless necessary
-      if (analysis.length > 1200) {
-        analysis = analysis.slice(0, 1100) + '...';
-      }
-
       return NextResponse.json({
         response: analysis + siteLinkToShow + pdfSourceLink,
         source: sources
@@ -245,10 +291,21 @@ Question: ${message}`;
     }
 
     // If no PDF matches, use Gemini for general response
-    const prompt = `You are a helpful assistant specifically for Lyceum of the Philippines University Manila campus (LPU Manila). 
+    const prompt = `You are a helpful assistant for Lyceum of the Philippines University Manila campus (LPU Manila).
+Answer the following question as naturally and conversationally as possible, as if you are a knowledgeable staff member.
+Do NOT start your answer with phrases like "According to the document", "The document mentions", "Based on the PDF", or similar.
+If the answer is incomplete or not found in the documents, intelligently refer to or summarize information from the official LPU Manila sites: 
+https://manila.lpu.edu.ph/ 
+https://manila.lpu.edu.ph/about-lpu/
+https://manila.lpu.edu.ph/admissions/
+https://manila.lpu.edu.ph/about-lpu/departments/
+https://manila.lpu.edu.ph/campus-life/
+https://manila.lpu.edu.ph/students/
+https://manila.lpu.edu.ph/contact-info/
+https://manila.lpu.edu.ph/about-lpu/lpu-alumni/
+https://aims.lpu.edu.ph/lpumnl/students/
+https://lmsmanila.lpu.edu.ph/
 Always refer to the institution as "Lyceum of the Philippines University Manila" or "LPU Manila" (not other LPU branches).
-Answer the following question as specifically and completely as possible using the information you have.
-Only suggest a website or page if the answer cannot be fully provided, or if the user needs more details.
 
 Use markdown formatting in your response:
 - Use **bold** for important terms or key points
@@ -258,7 +315,9 @@ Use markdown formatting in your response:
 - Use \`code\` for specific values or codes
 - Use > for important notes or warnings
 
-Question: ${message}`;
+Question: ${message}
+
+If the information is not found, say so in a friendly way and refer to the official LPU Manila website for more details. Do not use ellipses or cut off sentences. Always end your answer with a complete sentence.`;
 
     const response = await fetch(`${GEMINI_API_ENDPOINT}?key=${process.env.GOOGLE_AI_API_KEY}`, {
       method: 'POST',
@@ -275,7 +334,7 @@ Question: ${message}`;
           temperature: 0.7,
           topK: 40,
           topP: 0.95,
-          maxOutputTokens: 1024,
+          maxOutputTokens: 2048,
         },
       }),
     });
@@ -290,11 +349,6 @@ Question: ${message}`;
     // Add site/source link if relevant
     if (siteLink && !generatedText?.includes(siteLink)) {
       generatedText += `\n\n> For more info, visit: [LPU Manila](${siteLink})`;
-    }
-
-    // Limit answer length unless necessary
-    if (generatedText && generatedText.length > 1200) {
-      generatedText = generatedText.slice(0, 1100) + '...';
     }
 
     if (!generatedText) {

@@ -968,13 +968,21 @@ export default function AdminDashboard() {
                 </div>
 
                 <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:space-x-4">
-                  <input
-                    type="text"
-                    placeholder="Search document titles..."
-                    value={pdfSearch}
-                    onChange={e => setPdfSearch(e.target.value)}
-                    className="w-full sm:w-72 rounded-md border-gray-300 shadow-sm focus:ring-[#8B0000] focus:border-[#8B0000] sm:text-sm mb-2 sm:mb-0"
-                  />
+                  <div className="relative w-full sm:w-72 mb-2 sm:mb-0">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      </svg>
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="Search document titles..."
+                      value={pdfSearch}
+                      onChange={e => setPdfSearch(e.target.value)}
+                      className="w-full pl-10 rounded-md border-gray-300 shadow-sm focus:ring-[#8B0000] focus:border-[#8B0000] sm:text-sm"
+                    />
+                  </div>
                 </div>
 
                 {/* Upload Status Messages */}
@@ -1208,7 +1216,11 @@ export default function AdminDashboard() {
                           required
                         >
                           <option value="">Select a category</option>
-                          <option value="Admissions">Admissions</option>
+                          <optgroup label="Admissions">
+                            <option value="Enrollment for New Students">Enrollment for New Students</option>
+                            <option value="Tuition Fee and Payments">Tuition Fee and Payments</option>
+                            <option value="Scholarships and Grants">Scholarships and Grants</option>
+                          </optgroup>
                           <option value="Academics & Programs">Academics & Programs</option>
                           <option value="College Departments">College Departments</option>
                           <option value="Student Life">Student Life</option>
@@ -1230,25 +1242,33 @@ export default function AdminDashboard() {
                     <h3 className="text-xl font-semibold text-gray-900 mb-4">Existing FAQs</h3>
                     <div className="space-y-4">
                       <div className="flex space-x-4">
-                        <div className="flex-1">
+                        <div className="flex-1 relative">
+                          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2" />
+                              <line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                            </svg>
+                          </span>
                           <input
                             type="text"
                             placeholder="Search FAQs..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full rounded-md border-gray-300 shadow-sm focus:ring-[#8B0000] focus:border-[#8B0000] sm:text-sm"
+                            className="w-full pl-10 rounded-md border-gray-300 shadow-sm focus:ring-[#8B0000] focus:border-[#8B0000] sm:text-sm"
                           />
                         </div>
-                        <select
-                          value={selectedCategory}
-                          onChange={(e) => setSelectedCategory(e.target.value)}
-                          className="rounded-md border-gray-300 shadow-sm focus:ring-[#8B0000] focus:border-[#8B0000] sm:text-sm"
-                        >
-                          <option value="">All Categories</option>
-                          {categories.map((cat, index) => (
-                            <option key={index} value={cat}>{cat}</option>
-                          ))}
-                        </select>
+                        <div className="w-56">
+                          <select
+                            value={selectedCategory}
+                            onChange={(e) => setSelectedCategory(e.target.value)}
+                            className="w-full rounded-md border-gray-300 shadow-sm focus:ring-[#8B0000] focus:border-[#8B0000] sm:text-sm"
+                          >
+                            <option value="">All Categories</option>
+                            {categories.map((cat, index) => (
+                              <option key={index} value={cat}>{cat}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
 
                       <div className="space-y-4 max-h-[600px] overflow-y-auto">

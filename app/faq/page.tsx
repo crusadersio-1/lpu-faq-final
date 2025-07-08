@@ -7,6 +7,8 @@ import LPULogo from '../components/LPULogo'; // Adjust path based on actual stru
 import RenderAnswerWithLinks from '../components/RenderAnswerWithLinks'; // Import the new component
 import ChatbotButton from '../components/ChatbotButton'; // Import the button
 import ThemeToggle from '../components/ThemeToggle';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 // Define the type for an FAQ item
 interface FAQItem {
@@ -21,6 +23,8 @@ export default function FAQPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [openCategories, setOpenCategories] = useState({});
+  const [openSubcategories, setOpenSubcategories] = useState({});
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [categories, setCategories] = useState<string[]>([]);
   const [search, setSearch] = useState('');
@@ -60,6 +64,20 @@ export default function FAQPage() {
     setOpenIndex(openIndex === index ? null : index);
   };
 
+  const toggleCategory = (category) => {
+    setOpenCategories(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
+  };
+
+  const toggleSubcategory = (subCat) => {
+    setOpenSubcategories((prev) => ({
+      ...prev,
+      [subCat]: !prev[subCat]
+    }));
+  };
+
   const filteredFaqs = faqs.filter((faq) => {
     const matchesCategory =
       selectedCategory === 'All' ||
@@ -76,6 +94,26 @@ export default function FAQPage() {
     if (!groupedFaqs[cat]) groupedFaqs[cat] = [];
     groupedFaqs[cat].push(faq);
   });
+  
+  const admissionCategories = [
+    "Enrollment for New Students",
+    "Tuition Fee and Payments",
+    "Scholarships and Grants"
+  ];
+
+  const mergedGroupedFaqs = {
+    Admission: Object.fromEntries(
+      admissionCategories
+        .filter(cat => groupedFaqs[cat])
+        .map(cat => [cat, groupedFaqs[cat]])
+    ),
+
+    ...Object.fromEntries(
+      Object.entries(groupedFaqs).filter(
+        ([key]) => !admissionCategories.includes(key)
+      )
+    )
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 relative">
@@ -176,46 +214,166 @@ export default function FAQPage() {
           {error && <p className="text-center text-red-600 dark:text-red-400">{error}</p>}
           
           {!loading && !error && (
-            <div className="space-y-8">
-              {Object.keys(groupedFaqs).length === 0 ? (
-                <p className="text-center text-gray-500 dark:text-gray-400">No FAQs found.</p>
-              ) : (
-                Object.entries(groupedFaqs).map(([cat, catFaqs]) => (
-                  <div key={cat}>
-                    <h3 className="text-lg font-bold text-[#8B0000] mb-2">{cat}</h3>
-                    <div className="space-y-4">
-                      {catFaqs.map((faq, index) => {
-                        const globalIndex = faqs.findIndex(f => f.id === faq.id);
-                        return (
-                          <div key={faq.id} className="border-b border-gray-200 dark:border-gray-700 last:border-b-0">
-                            <button
-                              onClick={() => toggleAccordion(globalIndex)}
-                              className="flex justify-between items-center w-full py-4 text-left font-medium text-gray-700 dark:text-gray-100 hover:text-[#8B0000] focus:outline-none"
-                            >
-                              <span>{faq.question}</span>
-                              <svg 
-                                className={`w-5 h-5 transform transition-transform ${openIndex === globalIndex ? 'rotate-180' : ''} text-gray-500 dark:text-gray-300`}
-                                fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-                              </svg>
-                            </button>
-                            {openIndex === globalIndex && (
-                              <div className="pb-4 pt-2 text-gray-600 dark:text-gray-300">
-                                <RenderAnswerWithLinks text={faq.answer} />
+          <div className="space-y-8">
+          {Object.keys(mergedGroupedFaqs).length === 0 ? (
+            <p className="text-center text-gray-500 dark:text-gray-400">No FAQs found.</p>
+          ) : (
+            Object.entries(mergedGroupedFaqs).map(([cat, catValue]) => {
+              const isNested = typeof catValue === 'object' && !Array.isArray(catValue);
+              const isCategoryOpen = openCategories[cat];
+
+              return (
+                <div key={cat}>
+                    {/* Category toggle button */}
+                    <button
+                      onClick={() => toggleCategory(cat)}
+                      className={`flex justify-between items-center w-full py-3 text-left text-lg font-bold focus:outline-none
+                        ${isCategoryOpen ? 'text-[#8B0000]' : 'text-gray-700 dark:text-gray-100 hover:text-[#8B0000] dark:hover:text-[#8B0000]'}`}
+                    >
+                      <span>{cat}</span>
+                      <svg 
+                        className={`w-5 h-5 transform transition-transform ${isCategoryOpen ? 'rotate-180 text-[#8B0000]' : 'text-gray-500 dark:text-gray-300'}`}
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                      </svg>
+                    </button>
+
+                    {isCategoryOpen && (
+                      <div className="space-y-4 mt-2">
+                        {isNested ? (
+                          Object.entries(catValue).map(([subCat, faqsInSubCat]) => {
+                            const isSubCatOpen = openSubcategories[subCat];
+
+                            return (
+                              <div key={subCat}>
+                                {/* Subcategory toggle */}
+                                <button
+                                  onClick={() => toggleSubcategory(subCat)}
+                                  className={`flex justify-between items-center w-full py-2 text-left text-md font-semibold focus:outline-none
+                                    ${isSubCatOpen ? 'text-[#8B0000]' : 'text-gray-800 dark:text-gray-200 hover:text-[#8B0000] dark:hover:text-[#8B0000]'}`}
+                                >
+                                  <span>{subCat}</span>
+                                  <svg 
+                                    className={`w-4 h-4 transform transition-transform ${isSubCatOpen ? 'rotate-180 text-[#8B0000]' : 'text-gray-500 dark:text-gray-300'}`}
+                                    fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"
+                                  >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                                  </svg>
+                                </button>
+
+                                {/* Subcategory FAQ list */}
+                                {isSubCatOpen && (
+                                  <div className="pl-2 space-y-2 mt-1">
+                                    {faqsInSubCat.map((faq) => {
+                                      const globalIndex = faqs.findIndex(f => f.id === faq.id);
+                                      return (
+                                        <div key={faq.id} className="border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                                          <button
+                                            onClick={() => toggleAccordion(globalIndex)}
+                                            className={`flex justify-between items-center w-full py-3 text-left font-medium focus:outline-none
+                                              ${openIndex === globalIndex ? 'text-[#8B0000]' : 'text-gray-700 dark:text-gray-100 hover:text-[#8B0000] dark:hover:text-[#8B0000]'}`}
+                                          >
+                                            <span>{faq.question}</span>
+                                            <svg 
+                                              className={`w-5 h-5 transform transition-transform ${openIndex === globalIndex ? 'rotate-180' : ''} ${openIndex === globalIndex ? 'text-[#8B0000]' : 'text-gray-500 dark:text-gray-300'}`}
+                                              fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"
+                                            >
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                                            </svg>
+                                          </button>
+                                          {openIndex === globalIndex && (
+                                            <div className="pb-4 pt-2 text-gray-600 dark:text-gray-300">
+                                              <ReactMarkdown
+                                                remarkPlugins={[remarkGfm]}
+                                                components={{
+                                                  a: ({node, ...props}) => (
+                                                    <a {...props} className="text-blue-600 hover:text-blue-800 underline dark:text-blue-400 dark:hover:text-blue-300" target="_blank" rel="noopener noreferrer" />
+                                                  ),
+                                                  ul: ({node, ...props}) => (
+                                                    <ul {...props} className="list-disc pl-4 space-y-1" />
+                                                  ),
+                                                  ol: ({node, ...props}) => (
+                                                    <ol {...props} className="list-decimal pl-4 space-y-1" />
+                                                  ),
+                                                  li: ({node, ...props}) => (
+                                                    <li {...props} className="text-gray-800 dark:text-gray-100" />
+                                                  ),
+                                                  p: ({node, ...props}) => (
+                                                    <p {...props} className="mb-2" />
+                                                  ),
+                                                  blockquote: ({node, ...props}) => (
+                                                    <blockquote {...props} className="border-l-4 border-[#8B0000] pl-4 py-1 my-2 bg-gray-50 dark:bg-gray-800" />
+                                                  ),
+                                                  code: ({node, inline, ...props}) =>
+                                                    inline ? (
+                                                      <code {...props} className="bg-gray-200 dark:bg-gray-700 rounded px-1 py-0.5" />
+                                                    ) : (
+                                                      <code {...props} className="block bg-gray-200 dark:bg-gray-700 rounded p-2 my-2" />
+                                                    ),
+                                                  strong: ({node, ...props}) => (
+                                                    <strong {...props} className="font-bold text-gray-600 dark:text-gray-300" />
+                                                  ),
+                                                  em: ({node, ...props}) => (
+                                                    <em {...props} className="italic" />
+                                                  )
+                                                }}
+                                              >
+                                                {faq.answer}
+                                              </ReactMarkdown>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                            );
+                          })
+                        ) : (
+                          // Flat category (not nested) rendering here
+                          catValue.map((faq) => {
+                            const globalIndex = faqs.findIndex(f => f.id === faq.id);
+                            return (
+                              <div key={faq.id} className="border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                                <button
+                                  onClick={() => toggleAccordion(globalIndex)}
+                                  className={`flex justify-between items-center w-full py-4 text-left font-medium focus:outline-none
+                                    ${openIndex === globalIndex ? 'text-[#8B0000]' : 'text-gray-700 dark:text-gray-100 hover:text-[#8B0000] dark:hover:text-[#8B0000]'}`}
+                                >
+                                  <span>{faq.question}</span>
+                                  <svg 
+                                    className={`w-5 h-5 transform transition-transform ${openIndex === globalIndex ? 'rotate-180' : ''} ${openIndex === globalIndex ? 'text-[#8B0000]' : 'text-gray-500 dark:text-gray-300'}`}
+                                    fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"
+                                  >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                                  </svg>
+                                </button>
+                                {openIndex === globalIndex && (
+                                  <div className="pb-4 pt-2 text-gray-600 dark:text-gray-300">
+                                    <ReactMarkdown
+                                      remarkPlugins={[remarkGfm]}
+                                      components={{ /* same as above */ }}
+                                    >
+                                      {faq.answer}
+                                    </ReactMarkdown>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
                   </div>
-                ))
-              )}
-              <p className="text-center text-sm text-gray-500 dark:text-gray-400 pt-6">
-                Don't see your question here? Ask our chatbot or contact the student help desk.
-              </p>
-            </div>
+                );
+              })
+            )}
+            <p className="text-center text-sm text-gray-500 dark:text-gray-400 pt-6">
+              Don't see your question here? Ask our chatbot or contact the student help desk.
+            </p>
+          </div>
           )}
         </div>
 

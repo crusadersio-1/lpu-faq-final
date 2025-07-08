@@ -75,23 +75,12 @@ export default function Chat() {
 
   // Fetch FAQs for quick options
   useEffect(() => {
-    const fetchFaqs = async () => {
-      try {
-        const { data: faqs, error } = await supabase
-          .from('faqs')
-          .select('question')
-          .order('created_at', { ascending: false })
-          .limit(3);
-
-        if (error) throw error;
-        const faqQuestions = faqs?.map(faq => faq.question) || [];
-        setPredefinedOptions([...faqQuestions, 'I want to submit a ticket']);
-      } catch (error) {
-        console.error('Error fetching FAQs:', error);
-      }
-    };
-
-    fetchFaqs();
+    setPredefinedOptions([
+      'What programs are offered by the university?',
+      'Tell me about the student accessible resources provided by the university.',
+      'How do I apply for enrollment?',
+      'I want to submit a ticket'
+    ]);
   }, []);
 
   // Scroll to bottom on new message
