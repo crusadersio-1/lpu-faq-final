@@ -354,7 +354,38 @@ export default function FAQPage() {
                                   <div className="pb-4 pt-2 text-gray-600 dark:text-gray-300">
                                     <ReactMarkdown
                                       remarkPlugins={[remarkGfm]}
-                                      components={{ /* same as above */ }}
+                                      components={{
+                                        a: ({node, ...props}) => (
+                                          <a {...props} className="text-blue-600 hover:text-blue-800 underline dark:text-blue-400 dark:hover:text-blue-300" target="_blank" rel="noopener noreferrer" />
+                                        ),
+                                        ul: ({node, ...props}) => (
+                                          <ul {...props} className="list-disc pl-4 space-y-1" />
+                                        ),
+                                        ol: ({node, ...props}) => (
+                                          <ol {...props} className="list-decimal pl-4 space-y-1" />
+                                        ),
+                                        li: ({node, ...props}) => (
+                                          <li {...props} className="text-gray-800 dark:text-gray-100" />
+                                        ),
+                                        p: ({node, ...props}) => (
+                                          <p {...props} className="mb-2" />
+                                        ),
+                                        blockquote: ({node, ...props}) => (
+                                          <blockquote {...props} className="border-l-4 border-[#8B0000] pl-4 py-1 my-2 bg-gray-50 dark:bg-gray-800" />
+                                        ),
+                                        code: ({node, inline, ...props}) =>
+                                          inline ? (
+                                            <code {...props} className="bg-gray-200 dark:bg-gray-700 rounded px-1 py-0.5" />
+                                          ) : (
+                                            <code {...props} className="block bg-gray-200 dark:bg-gray-700 rounded p-2 my-2" />
+                                        ),
+                                        strong: ({node, ...props}) => (
+                                          <strong {...props} className="font-bold text-gray-600 dark:text-gray-300" />
+                                        ),
+                                        em: ({node, ...props}) => (
+                                          <em {...props} className="italic" />
+                                        )
+                                      }}
                                     >
                                       {faq.answer}
                                     </ReactMarkdown>
