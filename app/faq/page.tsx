@@ -332,7 +332,6 @@ export default function FAQPage() {
                             );
                           })
                         ) : (
-                          // Flat category (not nested) rendering here
                           catValue.map((faq) => {
                             const globalIndex = faqs.findIndex(f => f.id === faq.id);
                             return (

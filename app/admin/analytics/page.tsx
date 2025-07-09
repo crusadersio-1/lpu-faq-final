@@ -63,34 +63,76 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     const fetchAndCategorize = async () => {
-      const { data, error } = await supabase.from('user_messages').select('content');
-      if (!error && data) {
-        const messages = data.map((msg: any) => msg.content);
-        setUserMessages(messages);
+      try {
+        const { data: allMessages, error: allError } = await supabase
+          .from('user_messages')
+          .select('id, content, category');
 
-        if (messages.length > 0) {
-          const batchSize = 10;
-          let allCategories: string[] = [];
-          for (let i = 0; i < messages.length; i += batchSize) {
-            const batch = messages.slice(i, i + batchSize);
-            const response = await fetch('/api/categorize', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ messages: batch }),
-            });
-            const result = await response.json();
-            const batchCategories = result.categories || [];
-            allCategories = allCategories.concat(batchCategories);
-          }
-          setCategories(allCategories);
-
-          // Count categories
-          const counts: Record<string, number> = {};
-          allCategories.forEach(cat => {
-            counts[cat] = (counts[cat] || 0) + 1;
-          });
-          setCategoryCounts(counts);
+        if (allError) {
+          console.error('Error fetching all messages:', allError);
+          return;
         }
+
+        if (!allMessages) return;
+
+        setUserMessages(allMessages.map(msg => msg.content));
+
+        const uncategorized = allMessages.filter(msg => msg.category === null);
+
+        if (uncategorized.length > 0) {
+          const batchSize = 3;
+          for (let i = 0; i < uncategorized.length; i += batchSize) {
+            const batch = uncategorized.slice(i, i + batchSize);
+            const batchMessages = batch.map(msg => msg.content);
+
+            try {
+              const response = await fetch('/api/categorize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages: batchMessages }),
+              });
+
+              const result = await response.json();
+              const batchCategories = result.categories || [];
+
+              for (let j = 0; j < batch.length; j++) {
+                const messageId = batch[j].id;
+                const category = batchCategories[j] || 'Others';
+
+                const { error: updateError } = await supabase
+                  .from('user_messages')
+                  .update({ category })
+                  .eq('id', messageId);
+
+                if (updateError) {
+                  console.error(`Failed to update message ${messageId}`, updateError);
+                }
+              }
+            } catch (err) {
+              console.error('Categorization error:', err);
+            }
+          }
+        }
+
+        const updatedResult = await supabase
+          .from('user_messages')
+          .select('category');
+
+        if (updatedResult.error) {
+          console.error('Error re-fetching categories:', updatedResult.error);
+          return;
+        }
+
+        const counts: Record<string, number> = {};
+        updatedResult.data.forEach(row => {
+          const cat = row.category || 'Others';
+          counts[cat] = (counts[cat] || 0) + 1;
+        });
+
+        setCategories(Object.keys(counts));
+        setCategoryCounts(counts);
+      } catch (err) {
+        console.error('Unexpected error in fetchAndCategorize:', err);
       }
     };
     fetchAndCategorize();
